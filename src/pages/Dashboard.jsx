@@ -344,6 +344,32 @@ export default function Dashboard() {
           )}
         </Card>
       </div>
+
+      {data.categoryBreakdown.length > 0 && (
+        <Card>
+          <CardHeader title="Top de gastos" subtitle="Categorías de este mes, de mayor a menor" />
+          <ul className="space-y-3">
+            {[...data.categoryBreakdown]
+              .sort((a, b) => b.total - a.total)
+              .map((c) => {
+                const pct = data.expenses > 0 ? (c.total / data.expenses) * 100 : 0
+                return (
+                  <li key={c.id}>
+                    <div className="flex items-center justify-between text-sm mb-1">
+                      <span className="text-ink">{c.name}</span>
+                      <span className="tabular text-ink-muted">
+                        {formatMoney(c.total)} <span className="text-ink-faint">({formatPercent(pct, 0)})</span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-surface-sunken overflow-hidden">
+                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(pct, 100)}%` }} />
+                    </div>
+                  </li>
+                )
+              })}
+          </ul>
+        </Card>
+      )}
     </motion.div>
   )
 }
