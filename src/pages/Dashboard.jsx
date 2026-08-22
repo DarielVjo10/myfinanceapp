@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { totalIncomeForPeriod } from '../services/incomes'
-import { totalExpensesForPeriod, expensesByCategory, getExpensedCategoryIds, createExpense } from '../services/expenses'
+import { totalExpensesForPeriod, expensesByCategory, getExpensedCategoryIds, createExpense, getRecentCategoryAverage } from '../services/expenses'
 import { listCategories } from '../services/categories'
 import { totalSavingsForPeriod, listGoalsWithBalances } from '../services/savings'
 import { getNetWorthForPeriod, getNetWorthHistory } from '../services/networth'
@@ -20,8 +20,11 @@ import { CategoryDonut } from '../components/charts/CategoryDonut'
 import { Skeleton, EmptyState } from '../components/ui/Feedback'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { formatMoney } from '../utils/format'
-import { PiggyBank, Repeat, CalendarClock, Check, X } from 'lucide-react'
+import { formatMoney, formatPercent } from '../utils/format'
+import { PiggyBank, Repeat, CalendarClock, Check, X, TrendingUp } from 'lucide-react'
+
+// % de aumento vs el promedio de los últimos 3 meses para disparar una alerta
+const CATEGORY_ALERT_THRESHOLD = 0.2
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -67,6 +70,24 @@ export default function Dashboard() {
     const idx = history.findIndex((h) => h.period_id === currentPeriod.id)
     const previousNetWorth = idx > 0 ? history[idx - 1].net_worth : null
 
+    // alertas: categorías cuyo gasto este mes supera en más de CATEGORY_ALERT_THRESHOLD
+    // su promedio de los últimos 3 períodos anteriores (solo informa, nunca bloquea)
+    const currentIdx = allPeriods.findIndex((p) => p.id === currentPeriod.id)
+    const priorPeriods = currentIdx > 0 ? allPeriods.slice(Math.max(0, currentIdx - 3), currentIdx) : []
+    let categoryAlerts = []
+    if (priorPeriods.length > 0) {
+      const alerts = await Promise.all(
+        categoryBreakdown.filter((c) => c.total > 0).map(async (c) => {
+          const avg = await getRecentCategoryAverage(user.id, c.id, priorPeriods)
+          if (avg > 0 && c.total > avg * (1 + CATEGORY_ALERT_THRESHOLD)) {
+            return { name: c.name, total: c.total, avg, pctChange: ((c.total - avg) / avg) * 100 }
+          }
+          return null
+        })
+      )
+      categoryAlerts = alerts.filter(Boolean).sort((a, b) => b.pctChange - a.pctChange)
+    }
+
     setData({
       income,
       expenses,
@@ -75,6 +96,7 @@ export default function Dashboard() {
       growthPct: previousNetWorth ? percentChange(netWorth.net_worth, previousNetWorth) : 0,
       goals,
       categoryBreakdown,
+      categoryAlerts,
       // convierte cada cuenta a DOP con la tasa más reciente antes de sumar
       available: balances.reduce((s, b) => {
         const converted = convertToDOP(b.balance, b.accounts?.currency, ratesToDOP)
@@ -181,6 +203,21 @@ export default function Dashboard() {
       />
 
       <KpiGrid kpis={kpis} />
+
+      {data.categoryAlerts.length > 0 && (
+        <Card>
+          <CardHeader title="Alertas de gasto" subtitle="Categorías por encima de su promedio reciente — solo informativo" icon={TrendingUp} />
+          <ul className="divide-y divide-border">
+            {data.categoryAlerts.map((a) => (
+              <li key={a.name} className="py-2.5 text-sm text-ink">
+                Tus gastos en <span className="font-medium">{a.name}</span> aumentaron{' '}
+                <span className="font-medium text-alert">{formatPercent(a.pctChange, 0)}</span> respecto al promedio de
+                los últimos 3 meses ({formatMoney(a.total)} vs. {formatMoney(a.avg)} promedio).
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {upcomingPayments.length > 0 && (
         <Card>

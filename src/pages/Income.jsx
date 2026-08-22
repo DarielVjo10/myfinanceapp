@@ -1,26 +1,32 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, TrendingUp } from 'lucide-react'
+import { Plus, Trash2, TrendingUp, BarChart3 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
-import { listIncomes, createIncome, deleteIncome } from '../services/incomes'
+import { useLanguage } from '../contexts/LanguageContext'
+import { listIncomes, createIncome, deleteIncome, incomeTrendSeries } from '../services/incomes'
 import { listAccounts } from '../services/accounts'
+import { lastNPeriods } from '../services/analytics'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { EmptyState, Skeleton } from '../components/ui/Feedback'
+import { TrendBarChart } from '../components/charts/TrendBarChart'
 import { formatMoney } from '../utils/format'
 
 const TYPE_LABELS = { fixed: 'Fijo', extra: 'Extra', other: 'Otro' }
 
 export default function Income() {
   const { user } = useAuth()
-  const { currentPeriod } = usePeriod()
+  const { currentPeriod, allPeriods } = usePeriod()
+  const { language } = useLanguage()
   const [incomes, setIncomes] = useState(null)
   const [accounts, setAccounts] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ type: 'fixed', source: '', accountId: '', amount: '', description: '' })
+  const [trendType, setTrendType] = useState(null)
+  const [trendData, setTrendData] = useState(null)
 
   const load = async () => {
     const [inc, accs] = await Promise.all([
@@ -59,6 +65,14 @@ export default function Income() {
     load()
   }
 
+  const openTrend = async (type) => {
+    setTrendType(type)
+    setTrendData(null)
+    const periods = lastNPeriods(allPeriods, 12)
+    const series = await incomeTrendSeries(user.id, type, periods, language)
+    setTrendData(series)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -84,8 +98,11 @@ export default function Income() {
               <li key={inc.id} className="flex items-center justify-between px-5 py-3.5">
                 <div>
                   <p className="text-sm font-medium text-ink">{inc.source || TYPE_LABELS[inc.type]}</p>
-                  <p className="text-xs text-ink-faint">
-                    {TYPE_LABELS[inc.type]} · {inc.accounts?.name || 'Sin cuenta'} · {inc.income_date}
+                  <p className="text-xs text-ink-faint flex items-center gap-1.5">
+                    <button onClick={() => openTrend(inc.type)} className="hover:text-info hover:underline transition-colors flex items-center gap-1" aria-label="Ver tendencia">
+                      {TYPE_LABELS[inc.type]} <BarChart3 size={11} />
+                    </button>
+                    · {inc.accounts?.name || 'Sin cuenta'} · {inc.income_date}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -126,6 +143,18 @@ export default function Income() {
           </Field>
           <Button type="submit" loading={saving} className="w-full">Guardar</Button>
         </form>
+      </Modal>
+
+      <Modal open={!!trendType} onClose={() => setTrendType(null)} title={`Tendencia — ${TYPE_LABELS[trendType] ?? ''}`}>
+        {trendData ? (
+          trendData.some((d) => d.total > 0) ? (
+            <TrendBarChart data={trendData} dataKey="total" label="Ingreso" color="#34D399" />
+          ) : (
+            <p className="text-sm text-ink-faint">Sin ingresos históricos de este tipo todavía.</p>
+          )
+        ) : (
+          <Skeleton className="h-56 w-full" />
+        )}
       </Modal>
     </div>
   )

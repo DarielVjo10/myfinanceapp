@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import { recomputeAccountBalances } from './accounts'
+import { monthShort } from '../utils/format'
 
 export async function listIncomes(userId, periodId) {
   const { data, error } = await supabase
@@ -64,4 +65,28 @@ export async function totalIncomeForPeriod(userId, periodId) {
     .eq('period_id', periodId)
   if (error) throw error
   return data.reduce((sum, i) => sum + Number(i.amount), 0)
+}
+
+/** Evolución de un tipo de ingreso (fixed/extra/other) a través de varios períodos */
+export async function incomeTrend(userId, type, periodIds) {
+  const { data, error } = await supabase
+    .from('incomes')
+    .select('amount, period_id')
+    .eq('user_id', userId)
+    .eq('type', type)
+    .in('period_id', periodIds)
+  if (error) throw error
+
+  const totals = {}
+  for (const pid of periodIds) totals[pid] = 0
+  for (const row of data) totals[row.period_id] += Number(row.amount)
+  return totals
+}
+
+/** Igual que incomeTrend, pero como serie ordenada [{label, total}] lista para graficar */
+export async function incomeTrendSeries(userId, type, periods, lang = 'es') {
+  const totals = await incomeTrend(userId, type, periods.map((p) => p.id))
+  return [...periods]
+    .sort((a, b) => (a.year - b.year) || (a.month - b.month))
+    .map((p) => ({ label: monthShort(p.year, p.month, lang), total: totals[p.id] ?? 0 }))
 }

@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { buildMonthlyOverview, lastNPeriods, getBalanceSeriesGrouped } from '../services/analytics'
+import { expensesByCategory } from '../services/expenses'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Select } from '../components/ui/Input'
 import { GranularitySelector } from '../components/ui/GranularitySelector'
@@ -31,6 +32,7 @@ export default function History() {
   const [compareB, setCompareB] = useState('')
   const [netWorthGranularity, setNetWorthGranularity] = useState('month')
   const [netWorthSeries, setNetWorthSeries] = useState(null)
+  const [categoryComparison, setCategoryComparison] = useState(null)
 
   useEffect(() => {
     if (!user || allPeriods.length === 0) return
@@ -43,6 +45,20 @@ export default function History() {
     if (!user) return
     getBalanceSeriesGrouped(user.id, { entityType: 'networth', granularity: netWorthGranularity, lang: language }).then(setNetWorthSeries)
   }, [user, netWorthGranularity, language])
+
+  useEffect(() => {
+    if (!user || allPeriods.length === 0) return
+    const last3 = lastNPeriods(allPeriods, 3)
+    Promise.all(last3.map((p) => expensesByCategory(user.id, p.id))).then((results) => {
+      const names = new Set()
+      results.forEach((r) => r.forEach((c) => names.add(c.name)))
+      const rows = [...names].map((name) => ({
+        name,
+        totals: results.map((r) => r.find((c) => c.name === name)?.total ?? 0),
+      })).sort((a, b) => b.totals[b.totals.length - 1] - a.totals[a.totals.length - 1])
+      setCategoryComparison({ periods: last3, rows })
+    })
+  }, [user, allPeriods])
 
   useEffect(() => {
     if (allPeriods.length >= 2) {
@@ -108,6 +124,34 @@ export default function History() {
           />
         </Card>
       </div>
+
+      {categoryComparison && categoryComparison.rows.length > 0 && (
+        <Card>
+          <CardHeader title="Comparación de categorías" subtitle="Gasto por categoría, últimos 3 meses" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-ink-faint text-xs">
+                  <th className="pb-2 font-medium">Categoría</th>
+                  {categoryComparison.periods.map((p) => (
+                    <th key={p.id} className="pb-2 font-medium text-right tabular">{monthLabel(p.year, p.month, language)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {categoryComparison.rows.map((row) => (
+                  <tr key={row.name}>
+                    <td className="py-2 text-ink">{row.name}</td>
+                    {row.totals.map((t, i) => (
+                      <td key={i} className="py-2 text-right tabular text-ink-muted">{formatMoney(t)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <Card>
         <CardHeader title="Comparar meses" subtitle="Elige dos períodos para ver la variación" />

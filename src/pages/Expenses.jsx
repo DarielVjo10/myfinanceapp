@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, TrendingDown, AlertTriangle, Tags, Pencil, X, Check, Repeat } from 'lucide-react'
+import { Plus, Trash2, TrendingDown, AlertTriangle, Tags, Pencil, X, Check, Repeat, BarChart3 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
-import { listExpenses, createExpense, deleteExpense, getCategoryHistoricalAverage } from '../services/expenses'
+import { useLanguage } from '../contexts/LanguageContext'
+import { listExpenses, createExpense, deleteExpense, getCategoryHistoricalAverage, categoryTrendSeries } from '../services/expenses'
 import { autoGenerateRecurringExpenses } from '../services/recurring'
+import { lastNPeriods } from '../services/analytics'
 import {
   listCategories,
   createCategory,
@@ -19,6 +21,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { EmptyState, Skeleton, BudgetBadge } from '../components/ui/Feedback'
+import { TrendBarChart } from '../components/charts/TrendBarChart'
 import { formatMoney } from '../utils/format'
 
 const CLASSIFICATION_LABELS = { needs: 'Necesidad', wants: 'Deseo' }
@@ -26,7 +29,10 @@ const CLASSIFICATION_LABELS = { needs: 'Necesidad', wants: 'Deseo' }
 export default function Expenses() {
   const { user } = useAuth()
   const { currentPeriod, allPeriods } = usePeriod()
+  const { language } = useLanguage()
   const [expenses, setExpenses] = useState(null)
+  const [trendCategory, setTrendCategory] = useState(null)
+  const [trendData, setTrendData] = useState(null)
   const [categories, setCategories] = useState([])
   const [accounts, setAccounts] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -132,6 +138,14 @@ export default function Expenses() {
   const handleDelete = async (id) => {
     await deleteExpense(id, user.id)
     load()
+  }
+
+  const openTrend = async (category) => {
+    setTrendCategory(category)
+    setTrendData(null)
+    const periods = lastNPeriods(allPeriods, 12)
+    const series = await categoryTrendSeries(user.id, category.id, periods, language)
+    setTrendData(series)
   }
 
   const handleAddCategory = async (e) => {
@@ -274,6 +288,9 @@ export default function Expenses() {
                   defaultValue={c.due_day ?? ''}
                   onBlur={(e) => handleDueDayBlur(c.id, e.target.value)}
                 />
+                <button onClick={() => openTrend(c)} className="text-ink-faint hover:text-info transition-colors shrink-0" aria-label="Ver tendencia">
+                  <BarChart3 size={15} />
+                </button>
                 <button onClick={() => startEditCategory(c)} className="text-ink-faint hover:text-emerald-500 transition-colors shrink-0">
                   <Pencil size={15} />
                 </button>
@@ -343,6 +360,18 @@ export default function Expenses() {
             {isAnomaly && !anomalyConfirmed ? 'Confirmar de todas formas' : 'Guardar'}
           </Button>
         </form>
+      </Modal>
+
+      <Modal open={!!trendCategory} onClose={() => setTrendCategory(null)} title={`Tendencia — ${trendCategory?.name ?? ''}`}>
+        {trendData ? (
+          trendData.some((d) => d.total > 0) ? (
+            <TrendBarChart data={trendData} dataKey="total" label="Gasto" color="#F87171" />
+          ) : (
+            <p className="text-sm text-ink-faint">Sin gastos históricos en esta categoría todavía.</p>
+          )
+        ) : (
+          <Skeleton className="h-56 w-full" />
+        )}
       </Modal>
     </div>
   )

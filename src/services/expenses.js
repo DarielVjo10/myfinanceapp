@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import { recomputeAccountBalances } from './accounts'
+import { monthShort } from '../utils/format'
 
 export async function listExpenses(userId, periodId) {
   const { data, error } = await supabase
@@ -90,7 +91,7 @@ export async function expensesByCategory(userId, periodId) {
   for (const row of data) {
     const cat = row.expense_categories
     if (!cat) continue
-    if (!grouped[cat.id]) grouped[cat.id] = { name: cat.name, color: cat.color, total: 0 }
+    if (!grouped[cat.id]) grouped[cat.id] = { id: cat.id, name: cat.name, color: cat.color, total: 0 }
     grouped[cat.id].total += Number(row.amount)
   }
   return Object.values(grouped)
@@ -122,4 +123,25 @@ export async function getCategoryHistoricalAverage(userId, categoryId, periodIds
   const nonZero = Object.values(totals).filter((v) => v > 0)
   if (nonZero.length < 3) return null
   return nonZero.reduce((s, v) => s + v, 0) / nonZero.length
+}
+
+/** Igual que categoryTrend, pero como serie ordenada [{label, total}] lista para graficar */
+export async function categoryTrendSeries(userId, categoryId, periods, lang = 'es') {
+  const totals = await categoryTrend(userId, categoryId, periods.map((p) => p.id))
+  return [...periods]
+    .sort((a, b) => (a.year - b.year) || (a.month - b.month))
+    .map((p) => ({ label: monthShort(p.year, p.month, lang), total: totals[p.id] ?? 0 }))
+}
+
+/**
+ * Promedio de gasto de una categoría en los últimos N períodos ANTERIORES
+ * al indicado (para comparar "este mes vs promedio reciente" — a
+ * diferencia de getCategoryHistoricalAverage, incluye meses en $0, ya que
+ * un mes sin gasto sí cuenta para bajar el promedio reciente).
+ */
+export async function getRecentCategoryAverage(userId, categoryId, priorPeriods) {
+  if (priorPeriods.length === 0) return null
+  const totals = await categoryTrend(userId, categoryId, priorPeriods.map((p) => p.id))
+  const values = Object.values(totals)
+  return values.reduce((s, v) => s + v, 0) / values.length
 }
