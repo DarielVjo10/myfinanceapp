@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 import { formatMoney, formatPercent } from '../../utils/format'
 import { AnimatedNumber } from '../ui/Feedback'
+import { InfoTooltip } from '../ui/InfoTooltip'
 
 export function FinancialHero({ netWorth, growthPct, income, expenses, savings, available }) {
   const isPositive = growthPct >= 0
@@ -15,7 +16,10 @@ export function FinancialHero({ netWorth, growthPct, income, expenses, savings, 
     >
       <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl" />
       <div className="relative">
-        <p className="text-emerald-200/70 text-sm font-medium mb-1">Patrimonio Neto</p>
+        <div className="text-emerald-200/70 text-sm font-medium mb-1 flex items-center gap-1.5">
+          Patrimonio Neto
+          <InfoTooltip text="Activos − Pasivos: todo lo que tienes (cuentas, inversiones) menos todo lo que debes (tarjetas de crédito). No es solo cuánto has ahorrado." />
+        </div>
         <div className="flex items-baseline gap-3 flex-wrap">
           <AnimatedNumber
             value={netWorth}
@@ -33,20 +37,27 @@ export function FinancialHero({ netWorth, growthPct, income, expenses, savings, 
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/10">
-          <HeroStat label="Ingresos" value={income} />
-          <HeroStat label="Gastos" value={expenses} negative />
-          <HeroStat label="Ahorros" value={savings} />
-          <HeroStat label="Disponible" value={available} />
+          <HeroStat label="Ingresos" value={income} tooltip="Total de ingresos registrados este período." />
+          <HeroStat label="Gastos" value={expenses} negative tooltip="Total de gastos registrados este período." />
+          <HeroStat label="Ahorros" value={savings} tooltip="Total aportado a tus metas de ahorro este período." />
+          <HeroStat
+            label="Balance en Cuentas"
+            value={available}
+            tooltip="Suma de los balances actuales de tus cuentas bancarias y efectivo, convertidos a DOP. Es dinero real en tus cuentas, no descuenta lo que ya piensas usar para metas o pagos próximos."
+          />
         </div>
       </div>
     </motion.div>
   )
 }
 
-function HeroStat({ label, value, negative }) {
+function HeroStat({ label, value, negative, tooltip }) {
   return (
     <div>
-      <p className="text-emerald-200/60 text-xs mb-1">{label}</p>
+      <div className="text-emerald-200/60 text-xs mb-1 flex items-center gap-1">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} className="text-emerald-200/60 hover:text-white" />}
+      </div>
       <p className={`tabular font-medium text-sm md:text-base ${negative ? 'text-red-300' : 'text-white'}`}>
         {formatMoney(value)}
       </p>

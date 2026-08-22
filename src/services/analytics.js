@@ -38,7 +38,7 @@ export async function buildMonthlyOverview(userId, periods) {
     expenses: expenseMap[p.id] ?? 0,
     savings: savingsMap[p.id] ?? 0,
     netWorth: netWorthMap[p.id] ?? 0,
-    savingsRate: savingsRate(incomeMap[p.id] ?? 0, expenseMap[p.id] ?? 0),
+    savingsRate: savingsRate(incomeMap[p.id] ?? 0, savingsMap[p.id] ?? 0),
   }))
 }
 

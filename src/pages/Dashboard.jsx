@@ -121,17 +121,33 @@ export default function Dashboard() {
     )
   }
 
-  const rate = savingsRate(data.income, data.expenses)
-  const totalMover = data.expenses + data.savings
-  const remaining = data.income - totalMover
+  // Tasa de Ahorro = % del ingreso que realmente se destinó a metas de ahorro
+  // (antes se calculaba como (ingreso - gastos) / ingreso, que en realidad
+  // mide "ingreso no gastado" — no es lo mismo que "ingreso ahorrado" si
+  // queda dinero sin asignar a ningún lado)
+  const rate = savingsRate(data.income, data.savings)
+  // suma de lo ya gastado + lo ya aportado a metas este período (no lo que
+  // "falta mover" a futuro, a pesar del nombre — por eso el label es explícito)
+  const spentAndSaved = data.expenses + data.savings
+  const remaining = data.income - spentAndSaved
 
   const kpis = [
-    { label: 'Total a Mover', value: totalMover },
-    { label: 'Restante', value: remaining },
-    { label: 'Total Ahorrado', value: data.savings },
-    { label: 'Tasa de Ahorro', value: rate, isPercent: true },
-    { label: 'Patrimonio Neto', value: data.netWorth },
-    { label: 'Disponible', value: data.available },
+    {
+      label: 'Gastado + Ahorrado',
+      value: spentAndSaved,
+      tooltip: 'Gastos + aportes a metas de ahorro de este período. Todo el dinero que ya salió de tu ingreso, sea a gastos o a ahorro.',
+    },
+    {
+      label: 'Restante',
+      value: remaining,
+      tooltip: 'Ingresos − Gastos − Ahorros de este período. Es la parte de tu ingreso que aún no has gastado ni ahorrado.',
+    },
+    {
+      label: 'Tasa de Ahorro',
+      value: rate,
+      isPercent: true,
+      tooltip: 'Aportes a metas de ahorro como % de tus ingresos de este período. Entre más alto, mayor proporción de lo que ganas estás ahorrando.',
+    },
   ]
 
   return (

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Card } from '../ui/Card'
+import { InfoTooltip } from '../ui/InfoTooltip'
 import { formatMoney, formatPercent } from '../../utils/format'
 
 const container = {
@@ -22,7 +23,10 @@ export function KpiGrid({ kpis }) {
       {kpis.map((kpi) => (
         <motion.div key={kpi.label} variants={item}>
           <Card className="p-4">
-            <p className="text-ink-faint text-xs mb-1.5">{kpi.label}</p>
+            <div className="text-ink-faint text-xs mb-1.5 flex items-center gap-1">
+              {kpi.label}
+              {kpi.tooltip && <InfoTooltip text={kpi.tooltip} />}
+            </div>
             <p className="tabular font-display font-semibold text-lg text-ink">
               {kpi.isPercent ? formatPercent(kpi.value) : formatMoney(kpi.value)}
             </p>

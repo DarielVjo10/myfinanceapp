@@ -183,7 +183,9 @@ export function absoluteChange(current, previous) {
   return current - previous
 }
 
-export function savingsRate(income, expenses) {
+// % del ingreso del período que efectivamente se destinó a metas de ahorro
+// (no "lo que no se gastó" — eso puede quedar sin asignar en vez de ahorrarse)
+export function savingsRate(income, savings) {
   if (!income) return 0
-  return ((income - expenses) / income) * 100
+  return (savings / income) * 100
 }
