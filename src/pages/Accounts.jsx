@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Landmark, Wallet, ChevronDown, ChevronUp, ArrowRightLeft, Plus, Trash2, AlertTriangle, Pencil, X, Check } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import {
   listAccounts,
   createAccount,
@@ -20,11 +21,14 @@ import { listAccountTypes, createAccountType, deleteAccountType } from '../servi
 import { listTransfersForPeriod, createTransfer, deleteTransfer } from '../services/transfers'
 import { createIncome } from '../services/incomes'
 import { listExchangeRates, createExchangeRate, deleteExchangeRate, getLatestRatesToDOP } from '../services/exchangeRates'
+import { getBalanceSeriesGrouped } from '../services/analytics'
 import { convertToDOP, estimateMonthlyInterest } from '../utils/finance'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { Field, Input, Select } from '../components/ui/Input'
+import { GranularitySelector } from '../components/ui/GranularitySelector'
+import { NetWorthLineChart } from '../components/charts/NetWorthLineChart'
 import { formatMoney } from '../utils/format'
 
 const CURRENCIES = ['DOP', 'USD']
@@ -32,6 +36,7 @@ const CURRENCIES = ['DOP', 'USD']
 export default function Accounts() {
   const { user } = useAuth()
   const { currentPeriod } = usePeriod()
+  const { language } = useLanguage()
   const [accounts, setAccounts] = useState([])
   const [balances, setBalances] = useState({})
   const [seedByAccount, setSeedByAccount] = useState({})
@@ -53,6 +58,8 @@ export default function Accounts() {
   const [transferWarning, setTransferWarning] = useState(null)
   const [savingTransfer, setSavingTransfer] = useState(false)
   const [ratesToDOP, setRatesToDOP] = useState({})
+  const [balanceGranularity, setBalanceGranularity] = useState('month')
+  const [balanceSeries, setBalanceSeries] = useState(null)
 
   const load = async () => {
     const accs = await listAccounts(user.id)
@@ -84,6 +91,13 @@ export default function Accounts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentPeriod])
 
+  useEffect(() => {
+    if (!expandedAccountId) return
+    setBalanceSeries(null)
+    getBalanceSeriesGrouped(user.id, { entityType: 'account', entityId: expandedAccountId, granularity: balanceGranularity, lang: language }).then(setBalanceSeries)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [balanceGranularity])
+
   const isSeedPeriod = (accountId) => {
     const seed = seedByAccount[accountId]
     return !seed || seed.period_id === currentPeriod.id
@@ -105,6 +119,8 @@ export default function Accounts() {
       return
     }
     setExpandedAccountId(accountId)
+    setBalanceSeries(null)
+    getBalanceSeriesGrouped(user.id, { entityType: 'account', entityId: accountId, granularity: balanceGranularity, lang: language }).then(setBalanceSeries)
     if (!breakdownByAccount[accountId]) {
       const b = await getAccountMovementBreakdown(user.id, accountId, currentPeriod.id)
       setBreakdownByAccount((prev) => ({ ...prev, [accountId]: b }))
@@ -502,6 +518,27 @@ export default function Accounts() {
                       <p className="text-ink-faint">Transf. salida</p>
                       <p className="tabular font-medium text-alert">-{formatMoney(breakdown.transfersOut)}</p>
                     </div>
+                  </div>
+                )}
+
+                {expanded && (
+                  <div className="mt-3 ml-[42px]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-ink-muted">Evolución del balance</span>
+                      <GranularitySelector value={balanceGranularity} onChange={setBalanceGranularity} />
+                    </div>
+                    {balanceSeries ? (
+                      balanceSeries.points.length > 1 ? (
+                        <>
+                          <NetWorthLineChart data={balanceSeries.points} dataKey="value" tooltipLabel="Balance" />
+                          {balanceSeries.note && <p className="text-xs text-ink-faint mt-1.5">{balanceSeries.note}</p>}
+                        </>
+                      ) : (
+                        <p className="text-xs text-ink-faint">Aún no hay suficiente historial de balances para graficar esta cuenta.</p>
+                      )
+                    ) : (
+                      <p className="text-xs text-ink-faint">Cargando…</p>
+                    )}
                   </div>
                 )}
 

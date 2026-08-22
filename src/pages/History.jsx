@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
-import { buildMonthlyOverview, lastNPeriods } from '../services/analytics'
+import { useLanguage } from '../contexts/LanguageContext'
+import { buildMonthlyOverview, lastNPeriods, getBalanceSeriesGrouped } from '../services/analytics'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Select } from '../components/ui/Input'
+import { GranularitySelector } from '../components/ui/GranularitySelector'
 import { MonthlyBarChart } from '../components/charts/MonthlyBarChart'
 import { NetWorthLineChart } from '../components/charts/NetWorthLineChart'
 import { SavingsAreaChart } from '../components/charts/SavingsAreaChart'
@@ -22,10 +24,13 @@ const RANGE_OPTIONS = [
 export default function History() {
   const { user } = useAuth()
   const { allPeriods } = usePeriod()
+  const { language } = useLanguage()
   const [range, setRange] = useState(6)
   const [overview, setOverview] = useState(null)
   const [compareA, setCompareA] = useState('')
   const [compareB, setCompareB] = useState('')
+  const [netWorthGranularity, setNetWorthGranularity] = useState('month')
+  const [netWorthSeries, setNetWorthSeries] = useState(null)
 
   useEffect(() => {
     if (!user || allPeriods.length === 0) return
@@ -33,6 +38,11 @@ export default function History() {
     buildMonthlyOverview(user.id, periods).then(setOverview)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, allPeriods, range])
+
+  useEffect(() => {
+    if (!user) return
+    getBalanceSeriesGrouped(user.id, { entityType: 'networth', granularity: netWorthGranularity, lang: language }).then(setNetWorthSeries)
+  }, [user, netWorthGranularity, language])
 
   useEffect(() => {
     if (allPeriods.length >= 2) {
@@ -74,8 +84,19 @@ export default function History() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card>
-          <CardHeader title="Patrimonio Neto" subtitle="Evolución histórica" />
-          <NetWorthLineChart data={overview} />
+          <CardHeader
+            title="Patrimonio Neto"
+            subtitle="Evolución histórica"
+            action={<GranularitySelector value={netWorthGranularity} onChange={setNetWorthGranularity} />}
+          />
+          {netWorthSeries ? (
+            <>
+              <NetWorthLineChart data={netWorthSeries.points} dataKey="value" />
+              {netWorthSeries.note && <p className="text-xs text-ink-faint mt-2">{netWorthSeries.note}</p>}
+            </>
+          ) : (
+            <Skeleton className="h-64 w-full" />
+          )}
         </Card>
         <Card>
           <CardHeader title="Ahorro acumulado" />

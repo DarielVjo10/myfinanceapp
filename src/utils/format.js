@@ -39,6 +39,13 @@ export function monthShort(year, month, lang = 'es') {
   return `${months[month - 1].slice(0, 3)} '${String(year).slice(2)}`
 }
 
+/** "22 ago" a partir de un string YYYY-MM-DD — para puntos de gráfico por día */
+export function dayLabel(dateStr, lang = 'es') {
+  const months = lang === 'en' ? MONTHS_EN : MONTHS_ES
+  const [, month, day] = dateStr.split('-').map(Number)
+  return `${day} ${months[month - 1].slice(0, 3)}`
+}
+
 export function currentYearMonth() {
   const now = new Date()
   return { year: now.getFullYear(), month: now.getMonth() + 1 }
