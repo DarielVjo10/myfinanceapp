@@ -11,8 +11,11 @@ import { getNetWorthForPeriod, getNetWorthHistory } from '../services/networth'
 import { getAccountBalancesForPeriod } from '../services/accounts'
 import { autoGenerateRecurringExpenses } from '../services/recurring'
 import { getLatestRatesToDOP } from '../services/exchangeRates'
+import { getBudgetUsageForPeriod } from '../services/categories'
+import { getCreditCardUsageForPeriod } from '../services/networth'
 import { buildMonthlyOverview, lastNPeriods } from '../services/analytics'
-import { percentChange, absoluteChange, savingsRate, convertToDOP } from '../utils/finance'
+import { percentChange, absoluteChange, savingsRate, convertToDOP, computeFinancialHealthScore, emergencyFundStatus } from '../utils/finance'
+import { InfoTooltip } from '../components/ui/InfoTooltip'
 import { FinancialHero } from '../components/dashboard/FinancialHero'
 import { KpiGrid } from '../components/dashboard/KpiGrid'
 import { GoalRing } from '../components/dashboard/GoalRing'
@@ -26,6 +29,13 @@ import { PiggyBank, Repeat, CalendarClock, Check, X, TrendingUp, TrendingDown } 
 
 // % de aumento vs el promedio de los últimos 3 meses para disparar una alerta
 const CATEGORY_ALERT_THRESHOLD = 0.2
+
+const HEALTH_LABEL_CLASS = {
+  Excelente: 'bg-emerald-500/10 text-emerald-500',
+  Buena: 'bg-info/10 text-info',
+  Regular: 'bg-warn/10 text-warn',
+  'En riesgo': 'bg-alert/10 text-alert',
+}
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -111,6 +121,27 @@ export default function Dashboard() {
       savingsRate: { pct: percentChange(currentRate, savingsRate(prevMonth.income, prevMonth.savings)), diff: currentRate - savingsRate(prevMonth.income, prevMonth.savings) },
     } : null
 
+    // Índice de Salud Financiera — ver utils/finance.js para la fórmula exacta
+    const [budgetUsage, cardUsage] = await Promise.all([
+      getBudgetUsageForPeriod(user.id, currentPeriod.id),
+      getCreditCardUsageForPeriod(user.id, currentPeriod.id),
+    ])
+    const emergencyGoal = goals.find((g) => g.is_emergency_fund)
+    const avgMonthlyExpenses = averages.expenses.m3
+    const emergencyFundMonths = emergencyGoal && avgMonthlyExpenses > 0
+      ? emergencyGoal.balance / avgMonthlyExpenses
+      : null
+    const budgetAdherencePct = budgetUsage.length > 0
+      ? (budgetUsage.filter((b) => b.pct <= 100).length / budgetUsage.length) * 100
+      : null
+    const creditUtilizationPct = cardUsage.length > 0
+      ? cardUsage.reduce((s, c) => {
+          const limit = Number(c.credit_cards?.credit_limit) || 0
+          return s + (limit > 0 ? (Number(c.balance) / limit) * 100 : 0)
+        }, 0) / cardUsage.length
+      : null
+    const healthScore = computeFinancialHealthScore({ emergencyFundMonths, savingsRatePct: currentRate, budgetAdherencePct, creditUtilizationPct })
+
     setData({
       income,
       expenses,
@@ -122,6 +153,8 @@ export default function Dashboard() {
       categoryAlerts,
       averages,
       monthComparison,
+      healthScore,
+      emergencyFundMonths,
       // convierte cada cuenta a DOP con la tasa más reciente antes de sumar
       available: balances.reduce((s, b) => {
         const converted = convertToDOP(b.balance, b.accounts?.currency, ratesToDOP)
@@ -241,6 +274,38 @@ export default function Dashboard() {
               </li>
             ))}
           </ul>
+        </Card>
+      )}
+
+      {data.healthScore && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-1.5">
+                Salud Financiera
+                <InfoTooltip text="Promedio de las métricas disponibles: fondo de emergencia (meses de gasto cubiertos, 6+ = 100pts), tasa de ahorro, % de categorías dentro de presupuesto, y uso de tarjetas de crédito (menos uso = mejor). Es un criterio propio de la app, no un estándar oficial — cada componente se muestra abajo." />
+              </span>
+            }
+          />
+          <div className="flex items-center gap-4 mb-4">
+            <span className="font-display font-semibold text-3xl text-ink tabular">{data.healthScore.score}</span>
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${HEALTH_LABEL_CLASS[data.healthScore.label]}`}>
+              {data.healthScore.label}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {data.healthScore.components.map((c) => (
+              <div key={c.key}>
+                <p className="text-ink-faint text-xs mb-1">{c.label}</p>
+                <p className="tabular text-sm font-medium text-ink">{formatPercent(c.score, 0)}</p>
+              </div>
+            ))}
+          </div>
+          {data.emergencyFundMonths != null && (
+            <p className="text-xs text-ink-faint mt-3 pt-3 border-t border-border">
+              Fondo de emergencia: {data.emergencyFundMonths.toFixed(1)} meses de gasto cubiertos ({emergencyFundStatus(data.emergencyFundMonths) === 'en_riesgo' ? 'en riesgo, menos de 3 meses' : emergencyFundStatus(data.emergencyFundMonths) === 'adecuado' ? 'adecuado, 3-6 meses' : 'sólido, más de 6 meses'}).
+            </p>
+          )}
         </Card>
       )}
 

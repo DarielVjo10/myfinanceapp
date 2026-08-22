@@ -40,9 +40,9 @@ export default function Savings() {
   const [balanceWarning, setBalanceWarning] = useState(null)
 
   const [newGoalModalOpen, setNewGoalModalOpen] = useState(false)
-  const [newGoal, setNewGoal] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP' })
+  const [newGoal, setNewGoal] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false })
   const [editingGoalId, setEditingGoalId] = useState(null)
-  const [editGoalForm, setEditGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP' })
+  const [editGoalForm, setEditGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false })
   const [savingGoal, setSavingGoal] = useState(false)
 
   const load = async () => {
@@ -107,10 +107,11 @@ export default function Savings() {
       targetDate: newGoal.targetDate || null,
       plannedMonthlyContribution: newGoal.plannedMonthlyContribution ? Number(newGoal.plannedMonthlyContribution) : null,
       currency: newGoal.currency,
+      isEmergencyFund: newGoal.isEmergencyFund,
     })
     setSavingGoal(false)
     setNewGoalModalOpen(false)
-    setNewGoal({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP' })
+    setNewGoal({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false })
     load()
   }
 
@@ -122,6 +123,7 @@ export default function Savings() {
       targetDate: goal.target_date ?? '',
       plannedMonthlyContribution: goal.planned_monthly_contribution ?? '',
       currency: goal.currency || 'DOP',
+      isEmergencyFund: goal.is_emergency_fund ?? false,
     })
   }
   const cancelEditGoal = () => setEditingGoalId(null)
@@ -133,6 +135,7 @@ export default function Savings() {
       target_date: editGoalForm.targetDate || null,
       planned_monthly_contribution: editGoalForm.plannedMonthlyContribution ? Number(editGoalForm.plannedMonthlyContribution) : null,
       currency: editGoalForm.currency,
+      is_emergency_fund: editGoalForm.isEmergencyFund,
     })
     setEditingGoalId(null)
     load()
@@ -185,6 +188,14 @@ export default function Savings() {
                       {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </Select>
                   </Field>
+                  <label className="flex items-center gap-2 text-sm text-ink-muted">
+                    <input
+                      type="checkbox"
+                      checked={editGoalForm.isEmergencyFund}
+                      onChange={(e) => setEditGoalForm({ ...editGoalForm, isEmergencyFund: e.target.checked })}
+                    />
+                    Es mi fondo de emergencia
+                  </label>
                   <div className="flex items-center gap-2">
                     <Button onClick={() => saveEditGoal(goal.id)} className="shrink-0"><Check size={16} /></Button>
                     <Button variant="secondary" onClick={cancelEditGoal} className="shrink-0"><X size={16} /></Button>
@@ -211,11 +222,18 @@ export default function Savings() {
                       <X size={13} />
                     </button>
                   </div>
-                  {projection?.status && (
-                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_CLASS[projection.status]}`}>
-                      {STATUS_LABEL[projection.status]}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {goal.is_emergency_fund && (
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-info/10 text-info">
+                        Fondo de emergencia
+                      </span>
+                    )}
+                    {projection?.status && (
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_CLASS[projection.status]}`}>
+                        {STATUS_LABEL[projection.status]}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex justify-center mb-3">
@@ -332,6 +350,14 @@ export default function Savings() {
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </Select>
           </Field>
+          <label className="flex items-center gap-2 text-sm text-ink-muted">
+            <input
+              type="checkbox"
+              checked={newGoal.isEmergencyFund}
+              onChange={(e) => setNewGoal({ ...newGoal, isEmergencyFund: e.target.checked })}
+            />
+            Es mi fondo de emergencia
+          </label>
           <Button type="submit" loading={savingGoal} className="w-full">Crear meta</Button>
         </form>
       </Modal>

@@ -189,3 +189,53 @@ export function savingsRate(income, savings) {
   if (!income) return 0
   return (savings / income) * 100
 }
+
+// Estándar usado para el fondo de emergencia: <3 meses de gasto cubierto =
+// en riesgo, 3-6 = adecuado, >6 = sólido. Es un criterio común (no una ley),
+// documentado aquí para poder ajustarlo si se quiere otro estándar.
+export function emergencyFundStatus(months) {
+  if (months == null) return null
+  if (months < 3) return 'en_riesgo'
+  if (months <= 6) return 'adecuado'
+  return 'solido'
+}
+
+/**
+ * Índice de Salud Financiera (0-100): promedio simple de las sub-métricas
+ * que haya datos suficientes para calcular (si falta una, se excluye del
+ * promedio en vez de penalizar por falta de info). Es un criterio propio de
+ * esta app, no un estándar de la industria — por eso cada componente queda
+ * expuesto en el resultado para mostrar transparentemente de qué se compone:
+ * - Fondo de emergencia: min(100, mesesCubiertos / 6 * 100) — 6 meses de
+ *   gasto cubierto = 100 puntos (el umbral "sólido" de emergencyFundStatus).
+ * - Tasa de ahorro: el % tal cual, capado a 0-100.
+ * - Adherencia al presupuesto: % de categorías con presupuesto asignado que
+ *   NO lo excedieron este período.
+ * - Uso de tarjetas: 100 − % de uso promedio del límite de crédito (menos
+ *   uso = más saludable).
+ */
+export function computeFinancialHealthScore({ emergencyFundMonths, savingsRatePct, budgetAdherencePct, creditUtilizationPct }) {
+  const components = []
+  if (emergencyFundMonths != null) {
+    components.push({ key: 'emergencyFund', label: 'Fondo de emergencia', score: Math.min(100, (emergencyFundMonths / 6) * 100) })
+  }
+  if (savingsRatePct != null) {
+    components.push({ key: 'savingsRate', label: 'Tasa de ahorro', score: Math.max(0, Math.min(100, savingsRatePct)) })
+  }
+  if (budgetAdherencePct != null) {
+    components.push({ key: 'budgetAdherence', label: 'Adherencia al presupuesto', score: budgetAdherencePct })
+  }
+  if (creditUtilizationPct != null) {
+    components.push({ key: 'creditUsage', label: 'Uso de tarjetas de crédito', score: Math.max(0, 100 - creditUtilizationPct) })
+  }
+  if (components.length === 0) return null
+
+  const score = components.reduce((s, c) => s + c.score, 0) / components.length
+  let label
+  if (score >= 80) label = 'Excelente'
+  else if (score >= 60) label = 'Buena'
+  else if (score >= 40) label = 'Regular'
+  else label = 'En riesgo'
+
+  return { score: Math.round(score), label, components }
+}

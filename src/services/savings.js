@@ -12,7 +12,7 @@ export async function listGoals(userId) {
   return data
 }
 
-export async function createGoal(userId, { name, targetAmount, icon, color, currency = 'DOP', targetDate, plannedMonthlyContribution }) {
+export async function createGoal(userId, { name, targetAmount, icon, color, currency = 'DOP', targetDate, plannedMonthlyContribution, isEmergencyFund = false }) {
   const { data, error } = await supabase
     .from('savings_goals')
     .insert({
@@ -24,6 +24,7 @@ export async function createGoal(userId, { name, targetAmount, icon, color, curr
       currency,
       target_date: targetDate || null,
       planned_monthly_contribution: plannedMonthlyContribution || null,
+      is_emergency_fund: isEmergencyFund,
     })
     .select()
     .single()
