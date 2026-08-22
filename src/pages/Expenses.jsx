@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, TrendingDown, AlertTriangle, Tags, Pencil, X, Check } from 'lucide-react'
+import { Plus, Trash2, TrendingDown, AlertTriangle, Tags, Pencil, X, Check, Repeat } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { listExpenses, createExpense, deleteExpense, getCategoryHistoricalAverage } from '../services/expenses'
+import { autoGenerateRecurringExpenses } from '../services/recurring'
 import {
   listCategories,
   createCategory,
@@ -39,6 +40,10 @@ export default function Expenses() {
   const [editCategoryForm, setEditCategoryForm] = useState({ name: '', classification: 'wants' })
 
   const load = async () => {
+    // best-effort en el cliente: genera automáticamente los gastos
+    // recurrentes cuyo día ya llegó este período (ver services/recurring.js)
+    await autoGenerateRecurringExpenses(user.id, currentPeriod).catch(() => [])
+
     const [exp, cats, accs, usage, budgets] = await Promise.all([
       listExpenses(user.id, currentPeriod.id),
       listCategories(user.id),
@@ -185,7 +190,14 @@ export default function Expenses() {
             {expenses.map((exp) => (
               <li key={exp.id} className="flex items-center justify-between px-5 py-3.5">
                 <div>
-                  <p className="text-sm font-medium text-ink">{exp.expense_categories?.name}</p>
+                  <p className="text-sm font-medium text-ink flex items-center gap-1.5">
+                    {exp.expense_categories?.name}
+                    {exp.template_id && (
+                      <span className="flex items-center gap-1 text-[10px] font-medium text-info bg-info/10 px-1.5 py-0.5 rounded-full">
+                        <Repeat size={10} /> Recurrente
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-ink-faint">
                     {exp.accounts?.name || 'Sin cuenta'} · {exp.expense_date}
                     {exp.description ? ` · ${exp.description}` : ''}

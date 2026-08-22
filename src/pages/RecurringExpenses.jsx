@@ -43,13 +43,14 @@ export default function RecurringExpenses() {
 
   const handleAdd = async (e) => {
     e.preventDefault()
-    if (!newTemplate.categoryId || !newTemplate.amount) return
+    // el día es obligatorio: sin él, el gasto nunca se puede generar solo
+    if (!newTemplate.categoryId || !newTemplate.amount || !newTemplate.recurringDay) return
     await createRecurringTemplate(user.id, {
       categoryId: newTemplate.categoryId,
       accountId: newTemplate.accountId || null,
       amount: Number(newTemplate.amount),
       description: newTemplate.description,
-      recurringDay: newTemplate.recurringDay ? Number(newTemplate.recurringDay) : null,
+      recurringDay: Number(newTemplate.recurringDay),
     })
     setNewTemplate({ categoryId: newTemplate.categoryId, accountId: '', amount: '', description: '', recurringDay: '' })
     load()
@@ -78,6 +79,11 @@ export default function RecurringExpenses() {
     load()
   }
 
+  const handleReactivate = async (id) => {
+    await updateRecurringTemplate(id, { is_active: true })
+    load()
+  }
+
   if (templates === null) {
     return (
       <div className="space-y-3">
@@ -90,12 +96,12 @@ export default function RecurringExpenses() {
     <div className="space-y-4">
       <div>
         <h1 className="font-display font-semibold text-xl text-ink">Gastos Recurrentes</h1>
-        <p className="text-ink-muted text-sm">Suscripciones y pagos fijos que se repiten cada mes</p>
+        <p className="text-ink-muted text-sm">Suscripciones y pagos fijos que se registran solos cada mes, en el día que elijas</p>
       </div>
 
       <Card>
         {templates.length === 0 ? (
-          <EmptyState icon={Repeat} title="Sin gastos recurrentes" description="Agrega tu primera plantilla abajo — cada mes te avisamos en el Panel para confirmarla." />
+          <EmptyState icon={Repeat} title="Sin gastos recurrentes" description="Agrega tu primera plantilla abajo, con el día del mes en que se debita — se registrará sola cada mes cuando llegue esa fecha, sin que tengas que confirmarla." />
         ) : (
           <ul className="divide-y divide-border mb-4">
             {templates.map((t) => {
@@ -126,25 +132,40 @@ export default function RecurringExpenses() {
                 )
               }
               return (
-                <li key={t.id} className="flex items-center justify-between py-3">
-                  <div className="flex items-center gap-2">
-                    <Repeat size={14} className="text-ink-faint shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-ink">{t.description || t.expense_categories?.name}</p>
-                      <p className="text-xs text-ink-faint">
-                        {t.expense_categories?.name}
-                        {t.recurring_day ? ` · día ${t.recurring_day}` : ''}
-                      </p>
+                <li key={t.id} className={`py-3 ${!t.is_active ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Repeat size={14} className="text-ink-faint shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-ink flex items-center gap-1.5 flex-wrap">
+                          {t.description || t.expense_categories?.name}
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${t.is_active ? 'text-emerald-500 bg-emerald-500/10' : 'text-ink-faint bg-surface-sunken'}`}>
+                            {t.is_active ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </p>
+                        <p className="text-xs text-ink-faint">
+                          {t.expense_categories?.name} · {t.accounts?.name || 'Sin cuenta'}
+                          {t.recurring_day ? ` · día ${t.recurring_day} de cada mes` : ' · sin día asignado'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="tabular text-sm text-ink-muted">{formatMoney(t.amount)}</span>
-                    <button onClick={() => startEdit(t)} className="text-ink-faint hover:text-emerald-500 transition-colors">
-                      <Pencil size={15} />
-                    </button>
-                    <button onClick={async () => { await deactivateRecurringTemplate(t.id); load() }} className="text-ink-faint hover:text-alert transition-colors">
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="tabular text-sm text-ink-muted">{formatMoney(t.amount)}</span>
+                      {t.is_active ? (
+                        <>
+                          <button onClick={() => startEdit(t)} className="text-ink-faint hover:text-emerald-500 transition-colors">
+                            <Pencil size={15} />
+                          </button>
+                          <button onClick={async () => { await deactivateRecurringTemplate(t.id); load() }} className="text-ink-faint hover:text-alert transition-colors">
+                            <Trash2 size={15} />
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={() => handleReactivate(t.id)} className="text-xs font-medium text-emerald-500 hover:text-emerald-400 transition-colors">
+                          Reactivar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </li>
               )
@@ -164,7 +185,7 @@ export default function RecurringExpenses() {
           <Input placeholder="Descripción (Netflix, alquiler…)" value={newTemplate.description} onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })} />
           <Input type="number" step="0.01" placeholder="Monto" value={newTemplate.amount} onChange={(e) => setNewTemplate({ ...newTemplate, amount: e.target.value })} />
           <div className="flex gap-2">
-            <Input type="number" min="1" max="31" placeholder="Día" value={newTemplate.recurringDay} onChange={(e) => setNewTemplate({ ...newTemplate, recurringDay: e.target.value })} />
+            <Input type="number" min="1" max="31" placeholder="Día del mes*" required value={newTemplate.recurringDay} onChange={(e) => setNewTemplate({ ...newTemplate, recurringDay: e.target.value })} />
             <Button type="submit" className="shrink-0"><Plus size={16} /></Button>
           </div>
         </form>
