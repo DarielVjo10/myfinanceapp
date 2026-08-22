@@ -30,15 +30,17 @@ export function AuthProvider({ children }) {
       options: { data: { full_name: fullName } },
     })
 
+  const redirectBase = `${window.location.origin}${import.meta.env.BASE_URL}`
+
   const signInWithGoogle = () =>
     supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: redirectBase },
     })
 
   const resetPassword = (email) =>
     supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${redirectBase}reset-password`,
     })
 
   const signOut = () => supabase.auth.signOut()
