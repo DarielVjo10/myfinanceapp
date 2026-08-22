@@ -62,13 +62,35 @@ export default function Signup() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Nombre completo">
-              <Input required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dariel Pérez" />
+              <Input required value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Dariel Pérez" autoComplete="name" />
             </Field>
             <Field label="Correo">
-              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@correo.com" />
+              <Input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@correo.com"
+                autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+                inputMode="email"
+              />
             </Field>
             <Field label="Contraseña" hint="Mínimo 8 caracteres">
-              <Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+              <Input
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+              />
             </Field>
 
             {error && <p className="text-alert text-sm">{error}</p>}
