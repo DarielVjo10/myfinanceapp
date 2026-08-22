@@ -18,7 +18,7 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { GoalRing } from '../components/dashboard/GoalRing'
 import { EmptyState, Skeleton } from '../components/ui/Feedback'
 import { formatMoney } from '../utils/format'
-import { projectGoalCompletion } from '../utils/finance'
+import { projectGoalCompletion, estimateMonthlyInterest } from '../utils/finance'
 
 const CURRENCIES = ['DOP', 'USD']
 const STATUS_LABEL = { ahead: 'Adelantado', on_time: 'A tiempo', behind: 'Atrasado' }
@@ -40,9 +40,9 @@ export default function Savings() {
   const [balanceWarning, setBalanceWarning] = useState(null)
 
   const [newGoalModalOpen, setNewGoalModalOpen] = useState(false)
-  const [newGoal, setNewGoal] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false })
+  const [newGoal, setNewGoal] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false, accountId: '' })
   const [editingGoalId, setEditingGoalId] = useState(null)
-  const [editGoalForm, setEditGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false })
+  const [editGoalForm, setEditGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false, accountId: '' })
   const [savingGoal, setSavingGoal] = useState(false)
 
   const load = async () => {
@@ -108,10 +108,11 @@ export default function Savings() {
       plannedMonthlyContribution: newGoal.plannedMonthlyContribution ? Number(newGoal.plannedMonthlyContribution) : null,
       currency: newGoal.currency,
       isEmergencyFund: newGoal.isEmergencyFund,
+      accountId: newGoal.accountId || null,
     })
     setSavingGoal(false)
     setNewGoalModalOpen(false)
-    setNewGoal({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false })
+    setNewGoal({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false, accountId: '' })
     load()
   }
 
@@ -124,6 +125,7 @@ export default function Savings() {
       plannedMonthlyContribution: goal.planned_monthly_contribution ?? '',
       currency: goal.currency || 'DOP',
       isEmergencyFund: goal.is_emergency_fund ?? false,
+      accountId: goal.account_id || '',
     })
   }
   const cancelEditGoal = () => setEditingGoalId(null)
@@ -136,8 +138,18 @@ export default function Savings() {
       planned_monthly_contribution: editGoalForm.plannedMonthlyContribution ? Number(editGoalForm.plannedMonthlyContribution) : null,
       currency: editGoalForm.currency,
       is_emergency_fund: editGoalForm.isEmergencyFund,
+      account_id: editGoalForm.accountId || null,
     })
     setEditingGoalId(null)
+    load()
+  }
+
+  const handleRegisterGoalInterest = async (goal, amount) => {
+    await addContribution(user.id, goal.id, currentPeriod.id, {
+      amount,
+      note: 'Interés generado',
+      contributionType: 'planned',
+    })
     load()
   }
 
@@ -188,6 +200,12 @@ export default function Savings() {
                       {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </Select>
                   </Field>
+                  <Field label="¿En qué cuenta guardas este ahorro? (opcional)" hint="Si esa cuenta tiene interés, se proyecta aquí">
+                    <Select value={editGoalForm.accountId} onChange={(e) => setEditGoalForm({ ...editGoalForm, accountId: e.target.value })}>
+                      <option value="">Sin especificar</option>
+                      {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{Number(a.annual_interest_rate) > 0 ? ` (${a.annual_interest_rate}% anual)` : ''}</option>)}
+                    </Select>
+                  </Field>
                   <label className="flex items-center gap-2 text-sm text-ink-muted">
                     <input
                       type="checkbox"
@@ -204,12 +222,15 @@ export default function Savings() {
               )
             }
 
+            const goalAnnualRate = Number(goal.accounts?.annual_interest_rate || 0)
             const projection = projectGoalCompletion({
               currentAmount: goal.balance,
               targetAmount: Number(goal.target_amount || 0),
               monthlyContribution: Number(goal.planned_monthly_contribution || 0),
               targetDate: goal.target_date,
+              annualInterestRate: goalAnnualRate,
             })
+            const estimatedInterest = goalAnnualRate > 0 ? estimateMonthlyInterest(goal.balance, goalAnnualRate) : 0
 
             return (
               <Card key={goal.id}>
@@ -257,6 +278,22 @@ export default function Savings() {
                     </p>
                   )}
                 </div>
+
+                {goalAnnualRate > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border text-xs text-center space-y-1">
+                    <p className="text-ink-faint">
+                      Guardado en {goal.accounts?.name} ({goalAnnualRate}% anual): interés estimado este mes{' '}
+                      <span className="text-emerald-500 font-medium tabular">+{formatMoney(estimatedInterest)}</span>
+                      {' '}→ total estimado <span className="font-medium text-ink tabular">{formatMoney(goal.balance + estimatedInterest)}</span>
+                    </p>
+                    <button
+                      onClick={() => handleRegisterGoalInterest(goal, estimatedInterest)}
+                      className="text-emerald-500 hover:text-emerald-400 transition-colors underline"
+                    >
+                      Registrar interés generado
+                    </button>
+                  </div>
+                )}
               </Card>
             )
           })}
@@ -348,6 +385,12 @@ export default function Savings() {
           <Field label="Moneda">
             <Select value={newGoal.currency} onChange={(e) => setNewGoal({ ...newGoal, currency: e.target.value })}>
               {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </Select>
+          </Field>
+          <Field label="¿En qué cuenta guardas este ahorro? (opcional)" hint="Si esa cuenta tiene interés, se proyecta aquí">
+            <Select value={newGoal.accountId} onChange={(e) => setNewGoal({ ...newGoal, accountId: e.target.value })}>
+              <option value="">Sin especificar</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{Number(a.annual_interest_rate) > 0 ? ` (${a.annual_interest_rate}% anual)` : ''}</option>)}
             </Select>
           </Field>
           <label className="flex items-center gap-2 text-sm text-ink-muted">

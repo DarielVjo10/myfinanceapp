@@ -30,8 +30,14 @@ function addMonths(date, n) {
 /**
  * status: 'ahead' | 'on_time' | 'behind' | null (null si no hay target_date
  * o no hay aporte mensual planificado con qué proyectar).
+ *
+ * `annualInterestRate` es opcional: si la meta está vinculada a una cuenta
+ * con interés (savings_goals.account_id), la proyección simula mes a mes
+ * (aporte + interés sobre el balance acumulado) en vez de dividir
+ * linealmente — con interés, la meta se completa más rápido que solo
+ * sumando aportes, y esta simulación lo refleja en monthsToComplete.
  */
-export function projectGoalCompletion({ currentAmount, targetAmount, monthlyContribution, targetDate }) {
+export function projectGoalCompletion({ currentAmount, targetAmount, monthlyContribution, targetDate, annualInterestRate = 0 }) {
   if (!targetAmount || targetAmount <= 0) return null
 
   const remaining = targetAmount - currentAmount
@@ -43,7 +49,20 @@ export function projectGoalCompletion({ currentAmount, targetAmount, monthlyCont
     return { monthsToComplete: null, completionDate: null, status: targetDate ? 'behind' : null, requiredMonthlyContribution: null }
   }
 
-  const monthsToComplete = Math.ceil(remaining / monthlyContribution)
+  const monthlyRate = Number(annualInterestRate) / 100 / 12
+  let monthsToComplete
+  if (monthlyRate > 0) {
+    let balance = currentAmount
+    monthsToComplete = 0
+    // tope de 600 meses (50 años) para nunca quedar en loop infinito si el
+    // interés+aporte configurados fueran absurdamente bajos
+    while (balance < targetAmount && monthsToComplete < 600) {
+      balance = balance * (1 + monthlyRate) + monthlyContribution
+      monthsToComplete++
+    }
+  } else {
+    monthsToComplete = Math.ceil(remaining / monthlyContribution)
+  }
   const completionDate = addMonths(new Date(), monthsToComplete)
 
   let status = null
@@ -54,7 +73,19 @@ export function projectGoalCompletion({ currentAmount, targetAmount, monthlyCont
       status = monthsToComplete < monthsUntilTarget ? 'ahead' : 'on_time'
     } else {
       status = 'behind'
-      requiredMonthlyContribution = monthsUntilTarget > 0 ? remaining / monthsUntilTarget : remaining
+      if (monthsUntilTarget > 0) {
+        if (monthlyRate > 0) {
+          // cuánto crece el balance actual solo (sin aportes) hasta la fecha objetivo
+          const futureValueOfCurrent = currentAmount * Math.pow(1 + monthlyRate, monthsUntilTarget)
+          const stillNeeded = Math.max(0, targetAmount - futureValueOfCurrent)
+          const annuityFactor = (Math.pow(1 + monthlyRate, monthsUntilTarget) - 1) / monthlyRate
+          requiredMonthlyContribution = annuityFactor > 0 ? stillNeeded / annuityFactor : stillNeeded
+        } else {
+          requiredMonthlyContribution = remaining / monthsUntilTarget
+        }
+      } else {
+        requiredMonthlyContribution = remaining
+      }
     }
   }
 

@@ -2,17 +2,28 @@ import { supabase } from '../lib/supabaseClient'
 import { recomputeAccountBalances } from './accounts'
 
 export async function listGoals(userId) {
+  // el join con accounts depende de savings_goals.account_id (migración 017)
+  // — si todavía no corrió, cae a la consulta plana en vez de romper
+  // Dashboard.jsx/Savings.jsx enteros.
   const { data, error } = await supabase
+    .from('savings_goals')
+    .select('*, accounts(name, annual_interest_rate)')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+  if (!error) return data
+
+  const { data: fallback, error: fallbackError } = await supabase
     .from('savings_goals')
     .select('*')
     .eq('user_id', userId)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
-  if (error) throw error
-  return data
+  if (fallbackError) throw fallbackError
+  return fallback
 }
 
-export async function createGoal(userId, { name, targetAmount, icon, color, currency = 'DOP', targetDate, plannedMonthlyContribution, isEmergencyFund = false }) {
+export async function createGoal(userId, { name, targetAmount, icon, color, currency = 'DOP', targetDate, plannedMonthlyContribution, isEmergencyFund = false, accountId }) {
   const { data, error } = await supabase
     .from('savings_goals')
     .insert({
@@ -25,6 +36,7 @@ export async function createGoal(userId, { name, targetAmount, icon, color, curr
       target_date: targetDate || null,
       planned_monthly_contribution: plannedMonthlyContribution || null,
       is_emergency_fund: isEmergencyFund,
+      account_id: accountId || null,
     })
     .select()
     .single()
