@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Copy, CheckCircle2, Download, FileText, User, Lock, AlertTriangle, Globe } from 'lucide-react'
+import { Copy, CheckCircle2, Download, FileText, User, Lock, AlertTriangle, Globe, Wallet, Calculator } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -7,11 +7,15 @@ import { getFinancialSettings, updateFinancialSettings } from '../services/setti
 import { updatePassword, updateFullName, wipeAllUserData } from '../services/account'
 import { cloneMonthConfig, getOrCreatePeriod } from '../services/periods'
 import { exportFullHistory, exportAnnualReportPDF } from '../services/export'
+import { listAccounts } from '../services/accounts'
+import { getActivePayrollSettings, upsertPayrollSettings, deactivatePayrollSettings, getIsrBrackets } from '../services/payroll'
+import { calculatePayrollNet, ISR_SOURCE_LABEL, TSS_AFP_RATE_DEFAULT, TSS_SFS_RATE_DEFAULT } from '../utils/payroll'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Field, Input } from '../components/ui/Input'
+import { Modal } from '../components/ui/Modal'
+import { Field, Input, Select } from '../components/ui/Input'
 import { Skeleton } from '../components/ui/Feedback'
-import { monthLabel } from '../utils/format'
+import { monthLabel, formatMoney } from '../utils/format'
 
 const SPLIT_PRESETS = [
   { label: '50 / 30 / 20', needs: 50, wants: 30, savings: 20 },
@@ -46,10 +50,39 @@ export default function Settings() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
 
+  const [accounts, setAccounts] = useState([])
+  const [isrBrackets, setIsrBrackets] = useState([])
+  const [payrollSettings, setPayrollSettings] = useState(null)
+  const [payrollForm, setPayrollForm] = useState({ name: 'Sueldo', grossSalary: '', afpRate: TSS_AFP_RATE_DEFAULT, sfsRate: TSS_SFS_RATE_DEFAULT, accountId: '', paymentDay: '' })
+  const [savingPayroll, setSavingPayroll] = useState(false)
+  const [calculatorOpen, setCalculatorOpen] = useState(false)
+  const [calculatorGross, setCalculatorGross] = useState('')
+
   const load = async () => {
-    const fin = await getFinancialSettings(user.id)
+    // getIsrBrackets/getActivePayrollSettings dependen de la migración 016
+    // (tablas payroll_settings/isr_brackets) — si todavía no corrió, no debe
+    // tumbar el resto de Ajustes, solo dejar la sección de nómina vacía.
+    const [fin, accs, brackets, payroll] = await Promise.all([
+      getFinancialSettings(user.id),
+      listAccounts(user.id),
+      getIsrBrackets(2026).catch(() => []),
+      getActivePayrollSettings(user.id).catch(() => null),
+    ])
     setFinancial(fin)
     setSplit({ needs: fin.needs_pct, wants: fin.wants_pct, savings: fin.savings_pct })
+    setAccounts(accs)
+    setIsrBrackets(brackets)
+    setPayrollSettings(payroll)
+    if (payroll) {
+      setPayrollForm({
+        name: payroll.name,
+        grossSalary: payroll.gross_salary,
+        afpRate: payroll.afp_rate,
+        sfsRate: payroll.sfs_rate,
+        accountId: payroll.account_id || '',
+        paymentDay: payroll.payment_day,
+      })
+    }
   }
 
   useEffect(() => {
@@ -68,6 +101,30 @@ export default function Settings() {
       savingsPct: Number(split.savings),
     })
     setSavingSplit(false)
+  }
+
+  const handleSavePayroll = async (e) => {
+    e.preventDefault()
+    if (!payrollForm.grossSalary || !payrollForm.paymentDay) return
+    setSavingPayroll(true)
+    const saved = await upsertPayrollSettings(user.id, {
+      id: payrollSettings?.id,
+      name: payrollForm.name || 'Sueldo',
+      grossSalary: Number(payrollForm.grossSalary),
+      afpRate: Number(payrollForm.afpRate),
+      sfsRate: Number(payrollForm.sfsRate),
+      accountId: payrollForm.accountId || null,
+      paymentDay: Number(payrollForm.paymentDay),
+    })
+    setPayrollSettings(saved)
+    setSavingPayroll(false)
+  }
+
+  const handleDeactivatePayroll = async () => {
+    if (!payrollSettings) return
+    await deactivatePayrollSettings(payrollSettings.id)
+    setPayrollSettings(null)
+    setPayrollForm({ name: 'Sueldo', grossSalary: '', afpRate: TSS_AFP_RATE_DEFAULT, sfsRate: TSS_SFS_RATE_DEFAULT, accountId: '', paymentDay: '' })
   }
 
   const handleCloneMonth = async () => {
@@ -150,6 +207,19 @@ export default function Settings() {
 
   const splitTotal = Number(split.needs) + Number(split.wants) + Number(split.savings)
 
+  const payrollPreview = payrollForm.grossSalary
+    ? calculatePayrollNet({
+        grossSalary: Number(payrollForm.grossSalary),
+        afpRate: Number(payrollForm.afpRate) || TSS_AFP_RATE_DEFAULT,
+        sfsRate: Number(payrollForm.sfsRate) || TSS_SFS_RATE_DEFAULT,
+        brackets: isrBrackets,
+      })
+    : null
+
+  const calculatorPreview = calculatorGross
+    ? calculatePayrollNet({ grossSalary: Number(calculatorGross), brackets: isrBrackets })
+    : null
+
   if (!financial) {
     return (
       <div className="space-y-4">
@@ -228,6 +298,64 @@ export default function Settings() {
           {cloneStatus === 'done' ? <CheckCircle2 size={16} /> : <Copy size={16} />}
           {cloneStatus === 'done' ? t('settings.clone.done') : t('settings.clone.button')}
         </Button>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Ingreso fijo (sueldo)"
+          subtitle="Se calcula el neto según AFP, SFS e ISR — se registra solo cada mes, igual que un gasto recurrente"
+          icon={Wallet}
+          action={<Button variant="secondary" onClick={() => { setCalculatorGross(''); setCalculatorOpen(true) }}><Calculator size={16} /> Calculadora</Button>}
+        />
+        <form onSubmit={handleSavePayroll} className="space-y-4">
+          <Field label="Nombre">
+            <Input value={payrollForm.name} onChange={(e) => setPayrollForm({ ...payrollForm, name: e.target.value })} placeholder="Sueldo" />
+          </Field>
+          <Field label="Salario bruto mensual">
+            <Input type="number" step="0.01" placeholder="0.00" value={payrollForm.grossSalary} onChange={(e) => setPayrollForm({ ...payrollForm, grossSalary: e.target.value })} required />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Tasa AFP %" hint="Ley 87-01, ajustable si cambia">
+              <Input type="number" step="0.01" value={payrollForm.afpRate} onChange={(e) => setPayrollForm({ ...payrollForm, afpRate: e.target.value })} />
+            </Field>
+            <Field label="Tasa SFS %" hint="Ley 87-01, ajustable si cambia">
+              <Input type="number" step="0.01" value={payrollForm.sfsRate} onChange={(e) => setPayrollForm({ ...payrollForm, sfsRate: e.target.value })} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Día de pago" hint="Día del mes en que cae el sueldo">
+              <Input type="number" min="1" max="31" value={payrollForm.paymentDay} onChange={(e) => setPayrollForm({ ...payrollForm, paymentDay: e.target.value })} required />
+            </Field>
+            <Field label="Cuenta destino (opcional)">
+              <Select value={payrollForm.accountId} onChange={(e) => setPayrollForm({ ...payrollForm, accountId: e.target.value })}>
+                <option value="">Sin especificar</option>
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </Select>
+            </Field>
+          </div>
+
+          {payrollPreview && (
+            <div className="bg-surface-sunken rounded-lg p-3 space-y-1 text-xs">
+              <PayrollBreakdownRow label="Salario bruto" value={payrollPreview.grossSalary} />
+              <PayrollBreakdownRow label="AFP" value={-payrollPreview.afp} negative />
+              <PayrollBreakdownRow label="SFS" value={-payrollPreview.sfs} negative />
+              <PayrollBreakdownRow label="ISR (mensual)" value={-payrollPreview.isrMonthly} negative />
+              <div className="pt-1.5 mt-1.5 border-t border-border">
+                <PayrollBreakdownRow label="Neto mensual" value={payrollPreview.netSalary} bold />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Button type="submit" variant="secondary" loading={savingPayroll}>
+              {payrollSettings ? 'Actualizar' : 'Guardar'}
+            </Button>
+            {payrollSettings && (
+              <Button type="button" variant="ghost" onClick={handleDeactivatePayroll}>Desactivar</Button>
+            )}
+          </div>
+          <p className="text-[11px] text-ink-faint">{ISR_SOURCE_LABEL}</p>
+        </form>
       </Card>
 
       <Card>
@@ -313,6 +441,40 @@ export default function Settings() {
           </div>
         </div>
       </Card>
+
+      <Modal open={calculatorOpen} onClose={() => setCalculatorOpen(false)} title="Calculadora de Sueldo RD">
+        <div className="space-y-4">
+          <p className="text-xs text-ink-faint">
+            Escribe cualquier salario bruto para ver el desglose al instante — no guarda nada ni afecta tus datos reales.
+          </p>
+          <Field label="Salario bruto mensual">
+            <Input type="number" step="0.01" placeholder="0.00" autoFocus value={calculatorGross} onChange={(e) => setCalculatorGross(e.target.value)} />
+          </Field>
+          {calculatorPreview && (
+            <div className="bg-surface-sunken rounded-lg p-3 space-y-1 text-sm">
+              <PayrollBreakdownRow label="Salario bruto" value={calculatorPreview.grossSalary} />
+              <PayrollBreakdownRow label={`AFP (${TSS_AFP_RATE_DEFAULT}%)`} value={-calculatorPreview.afp} negative />
+              <PayrollBreakdownRow label={`SFS (${TSS_SFS_RATE_DEFAULT}%)`} value={-calculatorPreview.sfs} negative />
+              <PayrollBreakdownRow label="ISR (mensual)" value={-calculatorPreview.isrMonthly} negative />
+              <div className="pt-1.5 mt-1.5 border-t border-border">
+                <PayrollBreakdownRow label="Neto mensual" value={calculatorPreview.netSalary} bold />
+              </div>
+            </div>
+          )}
+          <p className="text-[11px] text-ink-faint">{ISR_SOURCE_LABEL}</p>
+        </div>
+      </Modal>
+    </div>
+  )
+}
+
+function PayrollBreakdownRow({ label, value, negative = false, bold = false }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className={bold ? 'font-medium text-ink' : 'text-ink-muted'}>{label}</span>
+      <span className={`tabular ${bold ? 'font-semibold text-ink' : negative ? 'text-alert' : 'text-ink'}`}>
+        {negative && value !== 0 ? '-' : ''}{formatMoney(Math.abs(value))}
+      </span>
     </div>
   )
 }

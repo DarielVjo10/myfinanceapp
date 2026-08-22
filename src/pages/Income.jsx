@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { listIncomes, createIncome, deleteIncome, incomeTrendSeries } from '../services/incomes'
+import { autoGeneratePayrollIncome } from '../services/payroll'
 import { listAccounts } from '../services/accounts'
 import { lastNPeriods } from '../services/analytics'
 import { Card, CardHeader } from '../components/ui/Card'
@@ -29,6 +30,9 @@ export default function Income() {
   const [trendData, setTrendData] = useState(null)
 
   const load = async () => {
+    // best-effort en el cliente: genera el ingreso de nómina de este
+    // período si ya llegó el día de pago (ver services/payroll.js)
+    await autoGeneratePayrollIncome(user.id, currentPeriod).catch(() => null)
     const [inc, accs] = await Promise.all([
       listIncomes(user.id, currentPeriod.id),
       listAccounts(user.id),

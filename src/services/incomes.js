@@ -13,7 +13,7 @@ export async function listIncomes(userId, periodId) {
   return data
 }
 
-export async function createIncome(userId, periodId, { type = 'fixed', source, accountId, amount, description, incomeDate }) {
+export async function createIncome(userId, periodId, { type = 'fixed', source, accountId, amount, description, incomeDate, payrollSettingsId }) {
   const { data, error } = await supabase
     .from('incomes')
     .insert({
@@ -25,6 +25,7 @@ export async function createIncome(userId, periodId, { type = 'fixed', source, a
       amount,
       description,
       income_date: incomeDate || new Date().toISOString().slice(0, 10),
+      payroll_settings_id: payrollSettingsId || null,
     })
     .select()
     .single()
