@@ -1,0 +1,132 @@
+import { useEffect, useState } from 'react'
+import { Plus, Trash2, TrendingUp } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { usePeriod } from '../contexts/PeriodContext'
+import { listIncomes, createIncome, deleteIncome } from '../services/incomes'
+import { listAccounts } from '../services/accounts'
+import { Card, CardHeader } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { Modal } from '../components/ui/Modal'
+import { Field, Input, Select } from '../components/ui/Input'
+import { EmptyState, Skeleton } from '../components/ui/Feedback'
+import { formatMoney } from '../utils/format'
+
+const TYPE_LABELS = { fixed: 'Fijo', extra: 'Extra', other: 'Otro' }
+
+export default function Income() {
+  const { user } = useAuth()
+  const { currentPeriod } = usePeriod()
+  const [incomes, setIncomes] = useState(null)
+  const [accounts, setAccounts] = useState([])
+  const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ type: 'fixed', source: '', accountId: '', amount: '', description: '' })
+
+  const load = async () => {
+    const [inc, accs] = await Promise.all([
+      listIncomes(user.id, currentPeriod.id),
+      listAccounts(user.id),
+    ])
+    setIncomes(inc)
+    setAccounts(accs)
+  }
+
+  useEffect(() => {
+    if (user && currentPeriod) load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, currentPeriod])
+
+  const total = (incomes ?? []).reduce((s, i) => s + Number(i.amount), 0)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    await createIncome(user.id, currentPeriod.id, {
+      type: form.type,
+      source: form.source,
+      accountId: form.accountId || null,
+      amount: Number(form.amount),
+      description: form.description,
+    })
+    setSaving(false)
+    setModalOpen(false)
+    setForm({ type: 'fixed', source: '', accountId: '', amount: '', description: '' })
+    load()
+  }
+
+  const handleDelete = async (id) => {
+    await deleteIncome(id)
+    load()
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display font-semibold text-xl text-ink">Ingresos</h1>
+          <p className="text-ink-muted text-sm tabular">Total del mes: {formatMoney(total)}</p>
+        </div>
+        <Button onClick={() => setModalOpen(true)}>
+          <Plus size={16} /> Nuevo ingreso
+        </Button>
+      </div>
+
+      <Card className="p-0 overflow-hidden">
+        {incomes === null ? (
+          <div className="p-5 space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
+          </div>
+        ) : incomes.length === 0 ? (
+          <EmptyState icon={TrendingUp} title="Sin ingresos este mes" description="Registra tu primer ingreso para este período." />
+        ) : (
+          <ul className="divide-y divide-border">
+            {incomes.map((inc) => (
+              <li key={inc.id} className="flex items-center justify-between px-5 py-3.5">
+                <div>
+                  <p className="text-sm font-medium text-ink">{inc.source || TYPE_LABELS[inc.type]}</p>
+                  <p className="text-xs text-ink-faint">
+                    {TYPE_LABELS[inc.type]} · {inc.accounts?.name || 'Sin cuenta'} · {inc.income_date}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="tabular font-medium text-emerald-500 text-sm">{formatMoney(inc.amount)}</span>
+                  <button onClick={() => handleDelete(inc.id)} className="text-ink-faint hover:text-alert transition-colors">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo ingreso">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Tipo">
+            <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+              <option value="fixed">Fijo</option>
+              <option value="extra">Extra</option>
+              <option value="other">Otro</option>
+            </Select>
+          </Field>
+          <Field label="Fuente">
+            <Input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="Salario, freelance…" />
+          </Field>
+          <Field label="Cuenta destino">
+            <Select value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+              <option value="">Sin especificar</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="Monto">
+            <Input type="number" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+          </Field>
+          <Field label="Descripción (opcional)">
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </Field>
+          <Button type="submit" loading={saving} className="w-full">Guardar</Button>
+        </form>
+      </Modal>
+    </div>
+  )
+}

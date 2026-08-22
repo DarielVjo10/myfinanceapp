@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --canvas: #F6FAF8;
+  --surface: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #EEF5F1;
+  --border: rgba(6, 78, 59, 0.10);
+  --ink: #0B1F17;
+  --ink-muted: #4B6358;
+  --ink-faint: #8AA398;
+}
+
+.dark {
+  --canvas: #060B09;
+  --surface: #0E1712;
+  --surface-raised: #13201A;
+  --surface-sunken: #0A100D;
+  --border: rgba(52, 211, 153, 0.10);
+  --ink: #EAF5EF;
+  --ink-muted: #93AEA1;
+  --ink-faint: #566B60;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* números financieros siempre en mono con tabular-nums para alinear dígitos */
+.tabular {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: rgba(16, 185, 129, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
