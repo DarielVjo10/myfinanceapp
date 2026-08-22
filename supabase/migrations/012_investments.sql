@@ -42,20 +42,20 @@ ALTER TABLE investment_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investment_contributions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investment_valuations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "investment_accounts_select_own" ON investment_accounts FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "investment_accounts_insert_own" ON investment_accounts FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "investment_accounts_update_own" ON investment_accounts FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY "investment_accounts_delete_own" ON investment_accounts FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY investment_accounts_select_own ON investment_accounts FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY investment_accounts_insert_own ON investment_accounts FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY investment_accounts_update_own ON investment_accounts FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY investment_accounts_delete_own ON investment_accounts FOR DELETE USING (user_id = auth.uid());
 
-CREATE POLICY "investment_contributions_select_own" ON investment_contributions FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "investment_contributions_insert_own" ON investment_contributions FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "investment_contributions_update_own" ON investment_contributions FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY "investment_contributions_delete_own" ON investment_contributions FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY investment_contributions_select_own ON investment_contributions FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY investment_contributions_insert_own ON investment_contributions FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY investment_contributions_update_own ON investment_contributions FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY investment_contributions_delete_own ON investment_contributions FOR DELETE USING (user_id = auth.uid());
 
-CREATE POLICY "investment_valuations_select_own" ON investment_valuations FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "investment_valuations_insert_own" ON investment_valuations FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "investment_valuations_update_own" ON investment_valuations FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY "investment_valuations_delete_own" ON investment_valuations FOR DELETE USING (user_id = auth.uid());
+CREATE POLICY investment_valuations_select_own ON investment_valuations FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY investment_valuations_insert_own ON investment_valuations FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY investment_valuations_update_own ON investment_valuations FOR UPDATE USING (user_id = auth.uid());
+CREATE POLICY investment_valuations_delete_own ON investment_valuations FOR DELETE USING (user_id = auth.uid());
 
 -- Patrimonio neto: investment_valuations SÍ es por período (a diferencia de
 -- debts), así que se puede sumar de forma segura como asset sin reescribir
