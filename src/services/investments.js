@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { logEntityClosure } from './closures'
 
 export async function listInvestments(userId) {
   const { data, error } = await supabase
@@ -41,6 +42,48 @@ export async function deactivateInvestment(investmentId) {
   const { error } = await supabase
     .from('investment_accounts')
     .update({ is_active: false })
+    .eq('id', investmentId)
+  if (error) throw error
+}
+
+/**
+ * Cierra una inversión con valor > 0 (ver migración 018 /
+ * ArchiveEntityModal). El "saldo" de una inversión es su última valuación
+ * declarada, no la suma de aportes — "transferir" registra un aporte en la
+ * destino por ese monto, documentando el valor movido (no es lo mismo que
+ * un aporte real nuevo, pero mantiene la trazabilidad en el mismo lugar
+ * donde ya se ven los aportes de esa inversión).
+ */
+export async function closeInvestment(userId, periodId, investmentId, { resolution, targetInvestmentId, amount, note }) {
+  if (resolution === 'transferred') {
+    const { error } = await supabase.from('investment_contributions').insert({
+      user_id: userId,
+      investment_id: targetInvestmentId,
+      period_id: periodId,
+      amount,
+      note: note || 'Cierre de inversión — valor transferido',
+      contribution_date: new Date().toISOString().slice(0, 10),
+    })
+    if (error) throw error
+  }
+
+  await logEntityClosure(userId, {
+    entityType: 'investment_account',
+    entityId: investmentId,
+    resolution,
+    targetEntityId: targetInvestmentId,
+    amount,
+    note,
+  })
+
+  const { error } = await supabase
+    .from('investment_accounts')
+    .update({
+      is_active: false,
+      closed_at: new Date().toISOString(),
+      closure_reason: resolution,
+      closure_note: note || null,
+    })
     .eq('id', investmentId)
   if (error) throw error
 }

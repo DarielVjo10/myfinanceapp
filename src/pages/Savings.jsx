@@ -7,6 +7,7 @@ import {
   createGoal,
   updateGoal,
   deactivateGoal,
+  closeGoal,
   addContribution,
   contributionsForPeriod,
 } from '../services/savings'
@@ -14,6 +15,7 @@ import { listAccounts, computeAccountBalance } from '../services/accounts'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { ArchiveEntityModal } from '../components/ui/ArchiveEntityModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { GoalRing } from '../components/dashboard/GoalRing'
 import { EmptyState, Skeleton } from '../components/ui/Feedback'
@@ -44,6 +46,7 @@ export default function Savings() {
   const [editingGoalId, setEditingGoalId] = useState(null)
   const [editGoalForm, setEditGoalForm] = useState({ name: '', targetAmount: '', targetDate: '', plannedMonthlyContribution: '', currency: 'DOP', isEmergencyFund: false, accountId: '' })
   const [savingGoal, setSavingGoal] = useState(false)
+  const [archivingGoal, setArchivingGoal] = useState(null)
 
   const load = async () => {
     const [g, c, accs] = await Promise.all([
@@ -153,6 +156,26 @@ export default function Savings() {
     load()
   }
 
+  const handleArchiveGoal = async (goal) => {
+    if (Number(goal.balance) === 0) {
+      await deactivateGoal(goal.id)
+      load()
+      return
+    }
+    setArchivingGoal(goal)
+  }
+
+  const handleResolveArchiveGoal = async ({ resolution, targetId, note }) => {
+    await closeGoal(user.id, archivingGoal.id, {
+      resolution,
+      targetGoalId: targetId,
+      amount: archivingGoal.balance,
+      note,
+    })
+    setArchivingGoal(null)
+    load()
+  }
+
   if (goals === null) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -239,7 +262,7 @@ export default function Savings() {
                     <button onClick={() => startEditGoal(goal)} className="text-ink-faint hover:text-emerald-500 transition-colors">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={async () => { await deactivateGoal(goal.id); load() }} className="text-ink-faint hover:text-alert transition-colors">
+                    <button onClick={() => handleArchiveGoal(goal)} className="text-ink-faint hover:text-alert transition-colors">
                       <X size={13} />
                     </button>
                   </div>
@@ -319,6 +342,7 @@ export default function Savings() {
                   <div>
                     <p className="text-sm font-medium text-ink">
                       {c.savings_goals?.name}
+                      {c.savings_goals?.closed_at && <span className="text-ink-faint font-normal"> (archivada)</span>}
                       {c.contribution_type === 'extraordinary' && (
                         <span className="ml-1.5 text-[10px] font-medium text-info bg-info/10 px-1.5 py-0.5 rounded-full align-middle">Extra</span>
                       )}
@@ -404,6 +428,17 @@ export default function Savings() {
           <Button type="submit" loading={savingGoal} className="w-full">Crear meta</Button>
         </form>
       </Modal>
+
+      {archivingGoal && (
+        <ArchiveEntityModal
+          open={!!archivingGoal}
+          onClose={() => setArchivingGoal(null)}
+          entityLabel={archivingGoal.name}
+          balance={archivingGoal.balance}
+          targetOptions={goals.filter((g) => g.id !== archivingGoal.id).map((g) => ({ id: g.id, name: g.name }))}
+          onResolve={handleResolveArchiveGoal}
+        />
+      )}
     </div>
   )
 }

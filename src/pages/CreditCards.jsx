@@ -7,6 +7,7 @@ import {
   createCreditCard,
   updateCreditCard,
   deactivateCreditCard,
+  closeCreditCard,
   getCreditCardUsageForPeriod,
   setCreditCardBalance,
   setCardPaidInFull,
@@ -16,6 +17,7 @@ import { projectDebtPayoff, estimateMonthlyInterest, estimateMinimumPayment } fr
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { ArchiveEntityModal } from '../components/ui/ArchiveEntityModal'
 import { formatMoney, formatPercent } from '../utils/format'
 
 export default function CreditCards() {
@@ -32,6 +34,7 @@ export default function CreditCards() {
   const [editingDebtId, setEditingDebtId] = useState(null)
   const [editDebtForm, setEditDebtForm] = useState({ name: '', balance: '', interestRate: '', minimumPayment: '', dueDate: '' })
   const [simPayment, setSimPayment] = useState({})
+  const [archivingCard, setArchivingCard] = useState(null)
 
   const load = async () => {
     const [crds, usage, dbts] = await Promise.all([
@@ -59,6 +62,27 @@ export default function CreditCards() {
   const handleCardPaidInFullChange = async (cardId, paidInFull) => {
     setCardPaidInFullMap((m) => ({ ...m, [cardId]: paidInFull }))
     await setCardPaidInFull(user.id, cardId, currentPeriod.id, paidInFull)
+  }
+
+  const handleArchiveCard = async (card) => {
+    const balance = Number(cardUsage[card.id] || 0)
+    if (balance === 0) {
+      await deactivateCreditCard(card.id)
+      load()
+      return
+    }
+    setArchivingCard(card)
+  }
+
+  const handleResolveArchiveCard = async ({ resolution, targetId, note }) => {
+    await closeCreditCard(user.id, currentPeriod.id, archivingCard.id, {
+      resolution,
+      targetCardId: targetId,
+      amount: Number(cardUsage[archivingCard.id] || 0),
+      note,
+    })
+    setArchivingCard(null)
+    load()
   }
 
   const handleAddCard = async (e) => {
@@ -189,7 +213,7 @@ export default function CreditCards() {
                     <button onClick={() => startEditCard(card)} className="text-ink-faint hover:text-emerald-500 transition-colors">
                       <Pencil size={13} />
                     </button>
-                    <button onClick={async () => { await deactivateCreditCard(card.id); load() }} className="text-ink-faint hover:text-alert transition-colors">
+                    <button onClick={() => handleArchiveCard(card)} className="text-ink-faint hover:text-alert transition-colors">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -360,6 +384,17 @@ export default function CreditCards() {
           </div>
         </form>
       </Card>
+
+      {archivingCard && (
+        <ArchiveEntityModal
+          open={!!archivingCard}
+          onClose={() => setArchivingCard(null)}
+          entityLabel={archivingCard.name}
+          balance={Number(cardUsage[archivingCard.id] || 0)}
+          targetOptions={cards.filter((c) => c.id !== archivingCard.id).map((c) => ({ id: c.id, name: c.name }))}
+          onResolve={handleResolveArchiveCard}
+        />
+      )}
     </div>
   )
 }

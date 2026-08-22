@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import { recomputeAccountBalances } from './accounts'
+import { logEntityClosure } from './closures'
 
 export async function listTransfersForPeriod(userId, periodId) {
   const { data, error } = await supabase
@@ -32,6 +33,42 @@ export async function createTransfer(userId, periodId, { fromAccountId, toAccoun
     recomputeAccountBalances(userId, toAccountId),
   ])
   return data
+}
+
+/**
+ * Cierra una cuenta con saldo > 0 (ver migración 018 / ArchiveEntityModal).
+ * "Transferir" reutiliza createTransfer (account_transfers) en vez de
+ * duplicar su lógica — ya recalcula el balance de ambas cuentas.
+ */
+export async function closeAccount(userId, periodId, accountId, { resolution, targetAccountId, amount, note }) {
+  if (resolution === 'transferred') {
+    await createTransfer(userId, periodId, {
+      fromAccountId: accountId,
+      toAccountId: targetAccountId,
+      amount,
+      note: note || 'Cierre de cuenta — saldo transferido',
+    })
+  }
+
+  await logEntityClosure(userId, {
+    entityType: 'account',
+    entityId: accountId,
+    resolution,
+    targetEntityId: targetAccountId,
+    amount,
+    note,
+  })
+
+  const { error } = await supabase
+    .from('accounts')
+    .update({
+      is_active: false,
+      closed_at: new Date().toISOString(),
+      closure_reason: resolution,
+      closure_note: note || null,
+    })
+    .eq('id', accountId)
+  if (error) throw error
 }
 
 export async function deleteTransfer(transferId, userId) {

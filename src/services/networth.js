@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { logEntityClosure } from './closures'
 
 /** El trigger recalc_net_worth ya mantiene esta tabla actualizada automáticamente */
 export async function getNetWorthForPeriod(userId, periodId) {
@@ -72,6 +73,52 @@ export async function deactivateCreditCard(cardId) {
   const { error } = await supabase
     .from('credit_cards')
     .update({ is_active: false })
+    .eq('id', cardId)
+  if (error) throw error
+}
+
+/**
+ * Cierra una tarjeta con saldo (deuda) > 0 (ver migración 018 /
+ * ArchiveEntityModal). No existe una "credit_card_transfers" dedicada, así
+ * que "transferir" ajusta manualmente el balance del período actual de la
+ * tarjeta destino sumando la deuda movida.
+ */
+export async function closeCreditCard(userId, periodId, cardId, { resolution, targetCardId, amount, note }) {
+  if (resolution === 'transferred') {
+    const { data: existing, error: existingError } = await supabase
+      .from('credit_card_balances')
+      .select('balance')
+      .eq('card_id', targetCardId)
+      .eq('period_id', periodId)
+      .maybeSingle()
+    if (existingError) throw existingError
+    const newBalance = Number(existing?.balance || 0) + Number(amount)
+    const { error } = await supabase
+      .from('credit_card_balances')
+      .upsert(
+        { user_id: userId, card_id: targetCardId, period_id: periodId, balance: newBalance },
+        { onConflict: 'card_id,period_id' }
+      )
+    if (error) throw error
+  }
+
+  await logEntityClosure(userId, {
+    entityType: 'credit_card',
+    entityId: cardId,
+    resolution,
+    targetEntityId: targetCardId,
+    amount,
+    note,
+  })
+
+  const { error } = await supabase
+    .from('credit_cards')
+    .update({
+      is_active: false,
+      closed_at: new Date().toISOString(),
+      closure_reason: resolution,
+      closure_note: note || null,
+    })
     .eq('id', cardId)
   if (error) throw error
 }

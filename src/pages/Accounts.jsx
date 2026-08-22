@@ -19,7 +19,7 @@ import {
   getInterestHistoryForAccount,
 } from '../services/accounts'
 import { listAccountTypes, createAccountType, deleteAccountType } from '../services/accountTypes'
-import { listTransfersForPeriod, createTransfer, deleteTransfer } from '../services/transfers'
+import { listTransfersForPeriod, createTransfer, deleteTransfer, closeAccount } from '../services/transfers'
 import { createIncome } from '../services/incomes'
 import { listExchangeRates, createExchangeRate, deleteExchangeRate, getLatestRatesToDOP } from '../services/exchangeRates'
 import { getBalanceSeriesGrouped } from '../services/analytics'
@@ -27,6 +27,7 @@ import { convertToDOP, estimateMonthlyInterest } from '../utils/finance'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { ArchiveEntityModal } from '../components/ui/ArchiveEntityModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { GranularitySelector } from '../components/ui/GranularitySelector'
 import { NetWorthLineChart } from '../components/charts/NetWorthLineChart'
@@ -63,6 +64,7 @@ export default function Accounts() {
   const [balanceGranularity, setBalanceGranularity] = useState('month')
   const [balanceSeries, setBalanceSeries] = useState(null)
   const [interestHistory, setInterestHistory] = useState(null)
+  const [archivingAccount, setArchivingAccount] = useState(null)
 
   const load = async () => {
     const accs = await listAccounts(user.id)
@@ -104,6 +106,27 @@ export default function Accounts() {
   const isSeedPeriod = (accountId) => {
     const seed = seedByAccount[accountId]
     return !seed || seed.period_id === currentPeriod.id
+  }
+
+  const handleArchiveAccount = async (account) => {
+    const balance = Number(balances[account.id] || 0)
+    if (balance === 0) {
+      await deactivateAccount(account.id)
+      load()
+      return
+    }
+    setArchivingAccount(account)
+  }
+
+  const handleResolveArchiveAccount = async ({ resolution, targetId, note }) => {
+    await closeAccount(user.id, currentPeriod.id, archivingAccount.id, {
+      resolution,
+      targetAccountId: targetId,
+      amount: Number(balances[archivingAccount.id] || 0),
+      note,
+    })
+    setArchivingAccount(null)
+    load()
   }
 
   const handleInitialBalanceChange = (accountId, value) => {
@@ -354,7 +377,7 @@ export default function Accounts() {
                   <button onClick={() => startEditAccount(a)} className="text-ink-faint hover:text-emerald-500 transition-colors">
                     <Pencil size={15} />
                   </button>
-                  <button onClick={async () => { await deactivateAccount(a.id); load() }} className="text-ink-faint hover:text-alert transition-colors">
+                  <button onClick={() => handleArchiveAccount(a)} className="text-ink-faint hover:text-alert transition-colors">
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -680,6 +703,17 @@ export default function Accounts() {
           </Button>
         </form>
       </Modal>
+
+      {archivingAccount && (
+        <ArchiveEntityModal
+          open={!!archivingAccount}
+          onClose={() => setArchivingAccount(null)}
+          entityLabel={archivingAccount.name}
+          balance={Number(balances[archivingAccount.id] || 0)}
+          targetOptions={accounts.filter((a) => a.id !== archivingAccount.id).map((a) => ({ id: a.id, name: a.name }))}
+          onResolve={handleResolveArchiveAccount}
+        />
+      )}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import {
   createInvestment,
   updateInvestment,
   deactivateInvestment,
+  closeInvestment,
   addInvestmentContribution,
   getTotalContributed,
   setValuation,
@@ -17,6 +18,7 @@ import {
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { ArchiveEntityModal } from '../components/ui/ArchiveEntityModal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { EmptyState, Skeleton } from '../components/ui/Feedback'
 import { formatMoney, formatPercent, monthShort } from '../utils/format'
@@ -40,6 +42,7 @@ export default function Investments() {
   const [contribModalOpen, setContribModalOpen] = useState(false)
   const [contribForm, setContribForm] = useState({ investmentId: '', amount: '', note: '' })
   const [savingContrib, setSavingContrib] = useState(false)
+  const [archivingInvestment, setArchivingInvestment] = useState(null)
 
   const load = async () => {
     const invs = await listInvestments(user.id)
@@ -63,6 +66,27 @@ export default function Investments() {
     if (!newInvestment.name.trim()) return
     await createInvestment(user.id, newInvestment)
     setNewInvestment({ name: '', investmentType: 'Acciones', expectedAnnualReturn: '' })
+    load()
+  }
+
+  const handleArchiveInvestment = async (inv) => {
+    const value = Number(valuationByInvestment[inv.id]?.value ?? 0)
+    if (value === 0) {
+      await deactivateInvestment(inv.id)
+      load()
+      return
+    }
+    setArchivingInvestment(inv)
+  }
+
+  const handleResolveArchiveInvestment = async ({ resolution, targetId, note }) => {
+    await closeInvestment(user.id, currentPeriod.id, archivingInvestment.id, {
+      resolution,
+      targetInvestmentId: targetId,
+      amount: Number(valuationByInvestment[archivingInvestment.id]?.value ?? 0),
+      note,
+    })
+    setArchivingInvestment(null)
     load()
   }
 
@@ -178,7 +202,7 @@ export default function Investments() {
                     <button onClick={() => startEdit(inv)} className="text-ink-faint hover:text-emerald-500 transition-colors">
                       <Pencil size={14} />
                     </button>
-                    <button onClick={async () => { await deactivateInvestment(inv.id); load() }} className="text-ink-faint hover:text-alert transition-colors">
+                    <button onClick={() => handleArchiveInvestment(inv)} className="text-ink-faint hover:text-alert transition-colors">
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -271,6 +295,17 @@ export default function Investments() {
           <Button type="submit" loading={savingContrib} className="w-full">Guardar aporte</Button>
         </form>
       </Modal>
+
+      {archivingInvestment && (
+        <ArchiveEntityModal
+          open={!!archivingInvestment}
+          onClose={() => setArchivingInvestment(null)}
+          entityLabel={archivingInvestment.name}
+          balance={Number(valuationByInvestment[archivingInvestment.id]?.value ?? 0)}
+          targetOptions={investments.filter((i) => i.id !== archivingInvestment.id).map((i) => ({ id: i.id, name: i.name }))}
+          onResolve={handleResolveArchiveInvestment}
+        />
+      )}
     </div>
   )
 }

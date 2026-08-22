@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import { recomputeAccountBalances } from './accounts'
+import { logEntityClosure } from './closures'
 
 export async function listGoals(userId) {
   // el join con accounts depende de savings_goals.account_id (migración 017)
@@ -59,6 +60,44 @@ export async function deactivateGoal(goalId) {
   const { error } = await supabase
     .from('savings_goals')
     .update({ is_active: false })
+    .eq('id', goalId)
+  if (error) throw error
+}
+
+/**
+ * Cierra una meta con saldo > 0: documenta a dónde va el dinero antes de
+ * archivarla (ver migración 018 / ArchiveEntityModal). "Transferir" mueve
+ * el 100% de los aportes históricos a la meta destino (se cierra completa,
+ * no parcial) — el saldo de la destino sube automáticamente porque su
+ * balance se calcula sumando savings_contributions.
+ */
+export async function closeGoal(userId, goalId, { resolution, targetGoalId, amount, note }) {
+  if (resolution === 'transferred') {
+    const { error } = await supabase
+      .from('savings_contributions')
+      .update({ goal_id: targetGoalId })
+      .eq('goal_id', goalId)
+      .eq('user_id', userId)
+    if (error) throw error
+  }
+
+  await logEntityClosure(userId, {
+    entityType: 'savings_goal',
+    entityId: goalId,
+    resolution,
+    targetEntityId: targetGoalId,
+    amount,
+    note,
+  })
+
+  const { error } = await supabase
+    .from('savings_goals')
+    .update({
+      is_active: false,
+      closed_at: new Date().toISOString(),
+      closure_reason: resolution,
+      closure_note: note || null,
+    })
     .eq('id', goalId)
   if (error) throw error
 }
@@ -125,14 +164,25 @@ export async function listGoalsWithBalances(userId) {
 }
 
 export async function contributionsForPeriod(userId, periodId) {
+  // closed_at depende de la migración 018 — si todavía no corrió, cae a la
+  // consulta sin esa columna en vez de romper Savings.jsx (mismo patrón que
+  // listGoals con account_id/migración 017).
   const { data, error } = await supabase
+    .from('savings_contributions')
+    .select('*, savings_goals(name, color, icon, closed_at)')
+    .eq('user_id', userId)
+    .eq('period_id', periodId)
+    .order('contribution_date', { ascending: false })
+  if (!error) return data
+
+  const { data: fallback, error: fallbackError } = await supabase
     .from('savings_contributions')
     .select('*, savings_goals(name, color, icon)')
     .eq('user_id', userId)
     .eq('period_id', periodId)
     .order('contribution_date', { ascending: false })
-  if (error) throw error
-  return data
+  if (fallbackError) throw fallbackError
+  return fallback
 }
 
 export async function totalSavingsForPeriod(userId, periodId) {
