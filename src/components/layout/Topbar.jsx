@@ -3,12 +3,14 @@ import { ChevronLeft, ChevronRight, Sun, Moon, LogOut } from 'lucide-react'
 import { usePeriod } from '../../contexts/PeriodContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { monthLabel } from '../../utils/format'
 
 export function Topbar() {
   const { currentPeriod, switchToPeriod } = usePeriod()
   const { theme, toggleTheme } = useTheme()
   const { signOut } = useAuth()
+  const { t, language } = useLanguage()
   const [busy, setBusy] = useState(false)
 
   if (!currentPeriod) return null
@@ -37,7 +39,7 @@ export function Topbar() {
           <ChevronLeft size={18} />
         </button>
         <span className="font-display font-medium text-sm w-32 text-center">
-          {monthLabel(currentPeriod.year, currentPeriod.month)}
+          {monthLabel(currentPeriod.year, currentPeriod.month, language)}
         </span>
         <button
           onClick={() => shift(1)}
@@ -52,14 +54,14 @@ export function Topbar() {
         <button
           onClick={toggleTheme}
           className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-muted hover:bg-surface-raised transition-colors"
-          aria-label="Cambiar tema"
+          aria-label={t('topbar.changeTheme')}
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <button
           onClick={signOut}
           className="w-9 h-9 flex items-center justify-center rounded-lg text-ink-muted hover:bg-alert/10 hover:text-alert transition-colors"
-          aria-label="Cerrar sesión"
+          aria-label={t('topbar.signOut')}
         >
           <LogOut size={18} />
         </button>

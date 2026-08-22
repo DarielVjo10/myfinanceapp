@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Copy, CheckCircle2, Download, FileText, User, Lock, AlertTriangle } from 'lucide-react'
+import { Copy, CheckCircle2, Download, FileText, User, Lock, AlertTriangle, Globe } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
+import { useLanguage } from '../contexts/LanguageContext'
 import { getFinancialSettings, updateFinancialSettings } from '../services/settings'
 import { updatePassword, updateFullName, wipeAllUserData } from '../services/account'
 import { cloneMonthConfig, getOrCreatePeriod } from '../services/periods'
@@ -23,6 +24,7 @@ const SPLIT_PRESETS = [
 export default function Settings() {
   const { user, signOut } = useAuth()
   const { currentPeriod, switchToPeriod, refreshPeriods } = usePeriod()
+  const { t, language, setLanguage } = useLanguage()
 
   const [financial, setFinancial] = useState(null)
   const [split, setSplit] = useState({ needs: 50, wants: 30, savings: 20 })
@@ -119,7 +121,7 @@ export default function Settings() {
     e.preventDefault()
     setPasswordError('')
     if (newPassword.length < 8) {
-      setPasswordError('Mínimo 8 caracteres.')
+      setPasswordError(t('settings.password.tooShort'))
       return
     }
     setSavingPassword(true)
@@ -158,55 +160,78 @@ export default function Settings() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display font-semibold text-xl text-ink">Ajustes</h1>
+      <h1 className="font-display font-semibold text-xl text-ink">{t('settings.title')}</h1>
 
       <Card>
-        <CardHeader title="Cuenta" icon={User} />
+        <CardHeader title={t('settings.account.title')} icon={User} />
         <form onSubmit={handleSaveName} className="space-y-4">
-          <Field label="Nombre completo">
+          <Field label={t('settings.account.fullName')}>
             <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </Field>
-          <Field label="Correo">
+          <Field label={t('settings.account.email')}>
             <Input value={user.email} disabled className="opacity-60" />
           </Field>
           <div className="flex items-center gap-3">
-            <Button type="submit" variant="secondary" loading={savingName}>Guardar nombre</Button>
-            {nameSaved && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle2 size={14} /> Guardado</span>}
+            <Button type="submit" variant="secondary" loading={savingName}>{t('settings.account.saveName')}</Button>
+            {nameSaved && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle2 size={14} /> {t('settings.account.saved')}</span>}
           </div>
         </form>
       </Card>
 
       <Card>
-        <CardHeader title="Cambiar contraseña" icon={Lock} />
+        <CardHeader title={t('settings.password.title')} icon={Lock} />
         <form onSubmit={handleChangePassword} className="space-y-4">
-          <Field label="Nueva contraseña" hint="Mínimo 8 caracteres">
+          <Field label={t('settings.password.new')} hint={t('settings.password.hint')}>
             <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
           </Field>
           {passwordError && <p className="text-alert text-sm">{passwordError}</p>}
           <div className="flex items-center gap-3">
-            <Button type="submit" variant="secondary" loading={savingPassword}>Actualizar contraseña</Button>
-            {passwordSaved && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle2 size={14} /> Actualizada</span>}
+            <Button type="submit" variant="secondary" loading={savingPassword}>{t('settings.password.update')}</Button>
+            {passwordSaved && <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle2 size={14} /> {t('settings.password.updated')}</span>}
           </div>
         </form>
       </Card>
 
       <Card>
+        <CardHeader title={t('settings.language.title')} subtitle={t('settings.language.subtitle')} icon={Globe} />
+        <div className="flex gap-2">
+          {[
+            { code: 'es', label: 'Español' },
+            { code: 'en', label: 'English' },
+          ].map((opt) => (
+            <button
+              key={opt.code}
+              type="button"
+              onClick={() => setLanguage(opt.code)}
+              className={`text-sm font-medium px-4 py-2 rounded-lg border transition-colors ${
+                language === opt.code
+                  ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-500'
+                  : 'border-border text-ink-muted hover:border-emerald-500/40 hover:text-ink'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
         <CardHeader
-          title="Clonar mes"
+          title={t('settings.clone.title')}
           subtitle={
             currentPeriod
-              ? `Copia solo configuración (categorías, metas, cuentas, presupuestos, distribución) de ${monthLabel(currentPeriod.year, currentPeriod.month)} hacia el siguiente mes. Nunca copia movimientos.`
+              ? `${t('settings.clone.subtitlePrefix')} ${monthLabel(currentPeriod.year, currentPeriod.month, language)} ${t('settings.clone.subtitleSuffix')}`
               : ''
           }
         />
         <Button onClick={handleCloneMonth} loading={cloneStatus === 'working'} variant="secondary">
           {cloneStatus === 'done' ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-          {cloneStatus === 'done' ? 'Configuración copiada' : 'Clonar hacia el próximo mes'}
+          {cloneStatus === 'done' ? t('settings.clone.done') : t('settings.clone.button')}
         </Button>
       </Card>
 
       <Card>
-        <CardHeader title="Objetivo de distribución" subtitle="Elige un preset o personaliza los porcentajes — debe sumar 100%" />
+        <CardHeader title={t('settings.split.title')} subtitle={t('settings.split.subtitle')} />
         <div className="flex flex-wrap gap-2 mb-4">
           {SPLIT_PRESETS.map((preset) => {
             const active = Number(split.needs) === preset.needs && Number(split.wants) === preset.wants && Number(split.savings) === preset.savings
@@ -227,56 +252,54 @@ export default function Settings() {
           })}
         </div>
         <form onSubmit={handleSaveSplit} className="grid grid-cols-3 gap-3 items-end">
-          <Field label="Necesidades %">
+          <Field label={t('settings.split.needs')}>
             <Input type="number" value={split.needs} onChange={(e) => setSplit({ ...split, needs: e.target.value })} />
           </Field>
-          <Field label="Deseos %">
+          <Field label={t('settings.split.wants')}>
             <Input type="number" value={split.wants} onChange={(e) => setSplit({ ...split, wants: e.target.value })} />
           </Field>
-          <Field label="Ahorro %">
+          <Field label={t('settings.split.savings')}>
             <Input type="number" value={split.savings} onChange={(e) => setSplit({ ...split, savings: e.target.value })} />
           </Field>
           <div className="col-span-3 flex items-center justify-between">
             <span className={`text-xs ${splitTotal === 100 ? 'text-ink-faint' : 'text-alert'}`}>
-              Total: {splitTotal}% {splitTotal !== 100 && '— debe ser 100%'}
+              {t('settings.split.total')}: {splitTotal}% {splitTotal !== 100 && `— ${t('settings.split.mustBe100')}`}
             </span>
             <Button type="submit" loading={savingSplit} disabled={splitTotal !== 100} variant="secondary">
-              Guardar
+              {t('settings.split.save')}
             </Button>
           </div>
         </form>
       </Card>
 
       <Card>
-        <CardHeader title="Exportar / respaldar datos" subtitle="Descarga todo tu histórico, no solo el mes actual" icon={Download} />
+        <CardHeader title={t('settings.export.title')} subtitle={t('settings.export.subtitle')} icon={Download} />
         <div className="space-y-4">
           <div>
             <Button variant="secondary" onClick={handleExportCSV} loading={exportingCSV}>
-              <Download size={16} /> Exportar historial completo (CSV)
+              <Download size={16} /> {t('settings.export.csv')}
             </Button>
-            <p className="text-xs text-ink-faint mt-1.5">Descarga 4 archivos: ingresos, gastos, aportes de ahorro y balances de cuenta.</p>
+            <p className="text-xs text-ink-faint mt-1.5">{t('settings.export.csvHint')}</p>
           </div>
           <div className="flex items-end gap-2">
-            <Field label="Reporte anual PDF">
+            <Field label={t('settings.export.annualReport')}>
               <Input type="number" value={reportYear} onChange={(e) => setReportYear(e.target.value)} className="max-w-[120px]" />
             </Field>
             <Button variant="secondary" onClick={handleExportPDF} loading={exportingPDF}>
-              <FileText size={16} /> Generar PDF
+              <FileText size={16} /> {t('settings.export.generatePdf')}
             </Button>
           </div>
         </div>
       </Card>
 
       <Card>
-        <CardHeader title="Zona de peligro" icon={AlertTriangle} />
+        <CardHeader title={t('settings.danger.title')} icon={AlertTriangle} />
         <div className="space-y-3">
-          <Button variant="danger" onClick={signOut}>Cerrar sesión</Button>
+          <Button variant="danger" onClick={signOut}>{t('settings.danger.signOut')}</Button>
           <div className="pt-3 border-t border-border space-y-2">
-            <p className="text-sm text-ink">Borrar todos mis datos</p>
-            <p className="text-xs text-ink-faint">
-              Borra permanentemente todo tu historial financiero (cuentas, gastos, ingresos, ahorros, inversiones, deudas, tarjetas). No borra tu acceso de inicio de sesión — eso requiere una función de servidor que esta app no tiene configurada; si de verdad quieres cerrar la cuenta por completo, dilo y te explico cómo pedirlo.
-            </p>
-            <Field label={`Escribe tu correo (${user.email}) para confirmar`}>
+            <p className="text-sm text-ink">{t('settings.danger.wipeTitle')}</p>
+            <p className="text-xs text-ink-faint">{t('settings.danger.wipeDescription')}</p>
+            <Field label={t('settings.danger.confirmLabel', { email: user.email })}>
               <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder={user.email} />
             </Field>
             <Button
@@ -285,7 +308,7 @@ export default function Settings() {
               loading={deleting}
               disabled={deleteConfirmText !== user.email}
             >
-              Borrar todos mis datos
+              {t('settings.danger.wipeButton')}
             </Button>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Field, Input, PasswordInput } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { translateAuthError, normalizeEmail } from '../../utils/authErrors'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 const container = {
   hidden: {},
@@ -18,6 +19,7 @@ const item = {
 
 export default function Login() {
   const { signInWithPassword, signInWithGoogle } = useAuth()
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -61,11 +63,11 @@ export default function Login() {
         </motion.div>
 
         <motion.div variants={item} className="bg-surface border border-border rounded-xl2 shadow-soft p-6">
-          <h1 className="font-display font-semibold text-lg text-ink mb-1">Bienvenido de vuelta</h1>
-          <p className="text-ink-muted text-sm mb-6">Entra para ver tu progreso financiero.</p>
+          <h1 className="font-display font-semibold text-lg text-ink mb-1">{t('auth.login.title')}</h1>
+          <p className="text-ink-muted text-sm mb-6">{t('auth.login.subtitle')}</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Field label="Correo">
+            <Field label={t('auth.login.email')}>
               <Input
                 type="email"
                 required
@@ -79,7 +81,7 @@ export default function Login() {
                 inputMode="email"
               />
             </Field>
-            <Field label="Contraseña">
+            <Field label={t('auth.login.password')}>
               <PasswordInput
                 required
                 value={password}
@@ -95,26 +97,26 @@ export default function Login() {
             {error && <p className="text-alert text-sm">{error}</p>}
 
             <Button type="submit" loading={loading} className="w-full">
-              Entrar
+              {t('auth.login.submit')}
             </Button>
           </form>
 
           <div className="flex items-center gap-3 my-5">
             <div className="h-px bg-border flex-1" />
-            <span className="text-ink-faint text-xs">o</span>
+            <span className="text-ink-faint text-xs">{t('auth.login.or')}</span>
             <div className="h-px bg-border flex-1" />
           </div>
 
           <Button variant="secondary" className="w-full" onClick={signInWithGoogle}>
-            Continuar con Google
+            {t('auth.login.google')}
           </Button>
 
           <div className="flex items-center justify-between mt-5 text-sm">
             <Link to="/forgot-password" className="text-ink-muted hover:text-emerald-500 transition-colors">
-              Olvidé mi contraseña
+              {t('auth.login.forgot')}
             </Link>
             <Link to="/signup" className="text-emerald-500 font-medium hover:underline">
-              Crear cuenta
+              {t('auth.login.createAccount')}
             </Link>
           </div>
         </motion.div>

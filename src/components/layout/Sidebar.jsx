@@ -1,23 +1,26 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, TrendingUp, TrendingDown, PiggyBank,
-  Landmark, History, LineChart, Settings, Banknote, Coins, Repeat,
+  Landmark, History, LineChart, Settings, Banknote, Coins, Repeat, CreditCard,
 } from 'lucide-react'
+import { useLanguage } from '../../contexts/LanguageContext'
 
 const links = [
-  { to: '/', label: 'Panel', icon: LayoutDashboard, end: true },
-  { to: '/income', label: 'Ingresos', icon: TrendingUp },
-  { to: '/expenses', label: 'Gastos', icon: TrendingDown },
-  { to: '/recurring', label: 'Recurrentes', icon: Repeat },
-  { to: '/savings', label: 'Ahorros', icon: PiggyBank },
-  { to: '/investments', label: 'Inversiones', icon: Coins },
-  { to: '/accounts', label: 'Cuentas', icon: Landmark },
-  { to: '/history', label: 'Historial', icon: History },
-  { to: '/analytics', label: 'Analítica', icon: LineChart },
-  { to: '/settings', label: 'Ajustes', icon: Settings },
+  { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, end: true },
+  { to: '/income', labelKey: 'nav.income', icon: TrendingUp },
+  { to: '/expenses', labelKey: 'nav.expenses', icon: TrendingDown },
+  { to: '/recurring', labelKey: 'nav.recurring', icon: Repeat },
+  { to: '/savings', labelKey: 'nav.savings', icon: PiggyBank },
+  { to: '/investments', labelKey: 'nav.investments', icon: Coins },
+  { to: '/accounts', labelKey: 'nav.accounts', icon: Landmark },
+  { to: '/credit-cards', labelKey: 'nav.creditCards', icon: CreditCard },
+  { to: '/history', labelKey: 'nav.history', icon: History },
+  { to: '/analytics', labelKey: 'nav.analytics', icon: LineChart },
+  { to: '/settings', labelKey: 'nav.settings', icon: Settings },
 ]
 
 export function Sidebar() {
+  const { t } = useLanguage()
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-surface h-screen sticky top-0 px-3 py-5">
       <div className="flex items-center gap-2 px-3 mb-8">
@@ -28,7 +31,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1">
-        {links.map(({ to, label, icon: Icon, end }) => (
+        {links.map(({ to, labelKey, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -42,7 +45,7 @@ export function Sidebar() {
             }
           >
             <Icon size={18} />
-            {label}
+            {t(labelKey)}
           </NavLink>
         ))}
       </nav>

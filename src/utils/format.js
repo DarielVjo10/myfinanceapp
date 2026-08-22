@@ -24,13 +24,19 @@ const MONTHS_ES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ]
+const MONTHS_EN = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
 
-export function monthLabel(year, month) {
-  return `${MONTHS_ES[month - 1]} ${year}`
+export function monthLabel(year, month, lang = 'es') {
+  const months = lang === 'en' ? MONTHS_EN : MONTHS_ES
+  return `${months[month - 1]} ${year}`
 }
 
-export function monthShort(year, month) {
-  return `${MONTHS_ES[month - 1].slice(0, 3)} '${String(year).slice(2)}`
+export function monthShort(year, month, lang = 'es') {
+  const months = lang === 'en' ? MONTHS_EN : MONTHS_ES
+  return `${months[month - 1].slice(0, 3)} '${String(year).slice(2)}`
 }
 
 export function currentYearMonth() {
