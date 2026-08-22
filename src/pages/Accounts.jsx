@@ -591,7 +591,7 @@ export default function Accounts() {
             </Select>
           </Field>
           <Field label="Monto">
-            <Input type="number" step="0.01" required value={transferForm.amount} onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })} />
+            <Input type="number" step="0.01" required placeholder="0.00" value={transferForm.amount} onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })} />
           </Field>
           <Field label="Nota (opcional)">
             <Input value={transferForm.note} onChange={(e) => setTransferForm({ ...transferForm, note: e.target.value })} />

@@ -21,6 +21,8 @@ import { Field, Input, Select } from '../components/ui/Input'
 import { EmptyState, Skeleton, BudgetBadge } from '../components/ui/Feedback'
 import { formatMoney } from '../utils/format'
 
+const CLASSIFICATION_LABELS = { needs: 'Necesidad', wants: 'Deseo' }
+
 export default function Expenses() {
   const { user } = useAuth()
   const { currentPeriod, allPeriods } = usePeriod()
@@ -251,7 +253,7 @@ export default function Expenses() {
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <Tags size={14} className="text-ink-faint shrink-0" />
                   <span className="text-sm text-ink truncate">{c.name}</span>
-                  <span className="text-xs text-ink-faint bg-surface-sunken px-2 py-0.5 rounded-full capitalize shrink-0">{c.classification}</span>
+                  <span className="text-xs text-ink-faint bg-surface-sunken px-2 py-0.5 rounded-full shrink-0">{CLASSIFICATION_LABELS[c.classification] || c.classification}</span>
                   {usage && <BudgetBadge pct={usage.pct} />}
                 </div>
                 <Input
@@ -314,6 +316,7 @@ export default function Expenses() {
               type="number"
               step="0.01"
               required
+              placeholder="0.00"
               value={form.amount}
               onChange={(e) => { setForm({ ...form, amount: e.target.value }); setAnomalyConfirmed(false) }}
             />

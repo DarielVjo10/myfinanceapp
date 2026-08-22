@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
@@ -229,7 +230,12 @@ export default function Dashboard() {
         <Card>
           <CardHeader title="Metas de ahorro" subtitle="Progreso acumulado" />
           {data.goals.length === 0 ? (
-            <EmptyState icon={PiggyBank} title="Sin metas aún" description="Crea una meta en Ajustes para empezar a rastrear tu progreso." />
+            <EmptyState
+              icon={PiggyBank}
+              title="Sin metas aún"
+              description="Crea una meta de ahorro para empezar a rastrear tu progreso."
+              action={<Link to="/savings"><Button variant="secondary">Ir a Ahorros</Button></Link>}
+            />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 py-2">
               {data.goals.map((goal) => (

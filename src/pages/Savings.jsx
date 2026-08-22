@@ -292,7 +292,7 @@ export default function Savings() {
             </Select>
           </Field>
           <Field label="Monto">
-            <Input type="number" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
+            <Input type="number" step="0.01" required placeholder="0.00" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           </Field>
           <Field label="Nota (opcional)">
             <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
