@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Copy, CheckCircle2, Download, FileText, User, Lock, AlertTriangle, Globe, Wallet, Calculator } from 'lucide-react'
+import { Copy, CheckCircle2, Download, FileText, User, Lock, AlertTriangle, Globe, Wallet, Calculator, HelpCircle } from 'lucide-react'
+import { ONBOARDING_STORAGE_KEY } from '../components/onboarding/OnboardingTour'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -297,6 +298,19 @@ export default function Settings() {
         <Button onClick={handleCloneMonth} loading={cloneStatus === 'working'} variant="secondary">
           {cloneStatus === 'done' ? <CheckCircle2 size={16} /> : <Copy size={16} />}
           {cloneStatus === 'done' ? t('settings.clone.done') : t('settings.clone.button')}
+        </Button>
+      </Card>
+
+      <Card>
+        <CardHeader title="Ayuda" subtitle="Repite el recorrido guiado por las funcionalidades principales" icon={HelpCircle} />
+        <Button
+          variant="secondary"
+          onClick={() => {
+            localStorage.removeItem(ONBOARDING_STORAGE_KEY)
+            window.dispatchEvent(new Event('replay-onboarding'))
+          }}
+        >
+          Ver tutorial de nuevo
         </Button>
       </Card>
 

@@ -1,11 +1,21 @@
+import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
 import { Topbar } from './Topbar'
 import { usePeriod } from '../../contexts/PeriodContext'
+import { OnboardingTour, ONBOARDING_STORAGE_KEY } from '../onboarding/OnboardingTour'
 
 export function AppLayout() {
   const { loading } = usePeriod()
+  const [tourOpen, setTourOpen] = useState(false)
+
+  useEffect(() => {
+    if (!localStorage.getItem(ONBOARDING_STORAGE_KEY)) setTourOpen(true)
+    const replay = () => setTourOpen(true)
+    window.addEventListener('replay-onboarding', replay)
+    return () => window.removeEventListener('replay-onboarding', replay)
+  }, [])
 
   return (
     <div className="flex min-h-screen bg-canvas">
@@ -23,6 +33,7 @@ export function AppLayout() {
         </main>
       </div>
       <MobileNav />
+      <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />
     </div>
   )
 }
