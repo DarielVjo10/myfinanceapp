@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Plus, PiggyBank } from 'lucide-react'
+import { Plus, PiggyBank, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { listGoalsWithBalances, addContribution, contributionsForPeriod } from '../services/savings'
+import { listAccounts, computeAccountBalance } from '../services/accounts'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -16,17 +17,21 @@ export default function Savings() {
   const { currentPeriod } = usePeriod()
   const [goals, setGoals] = useState(null)
   const [contributions, setContributions] = useState([])
+  const [accounts, setAccounts] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ goalId: '', amount: '', note: '' })
+  const [form, setForm] = useState({ goalId: '', amount: '', note: '', accountId: '' })
+  const [balanceWarning, setBalanceWarning] = useState(null)
 
   const load = async () => {
-    const [g, c] = await Promise.all([
+    const [g, c, accs] = await Promise.all([
       listGoalsWithBalances(user.id),
       contributionsForPeriod(user.id, currentPeriod.id),
+      listAccounts(user.id),
     ])
     setGoals(g)
     setContributions(c)
+    setAccounts(accs)
     setForm((f) => ({ ...f, goalId: f.goalId || g[0]?.id || '' }))
   }
 
@@ -35,16 +40,37 @@ export default function Savings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, currentPeriod])
 
+  useEffect(() => {
+    if (!form.accountId || !form.amount || !user || !currentPeriod) {
+      setBalanceWarning(null)
+      return
+    }
+    let active = true
+    const timer = setTimeout(async () => {
+      const { balance } = await computeAccountBalance(user.id, form.accountId, currentPeriod.id)
+      if (!active) return
+      const projected = balance - Number(form.amount)
+      setBalanceWarning(
+        projected < 0
+          ? `Esta cuenta quedaría en ${formatMoney(projected)} (balance negativo) si guardas este aporte.`
+          : null
+      )
+    }, 400)
+    return () => { active = false; clearTimeout(timer) }
+  }, [form.accountId, form.amount, user, currentPeriod])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
     await addContribution(user.id, form.goalId, currentPeriod.id, {
       amount: Number(form.amount),
       note: form.note,
+      accountId: form.accountId || null,
     })
     setSaving(false)
     setModalOpen(false)
-    setForm({ goalId: form.goalId, amount: '', note: '' })
+    setBalanceWarning(null)
+    setForm({ goalId: form.goalId, amount: '', note: '', accountId: '' })
     load()
   }
 
@@ -112,6 +138,18 @@ export default function Savings() {
           <Field label="Nota (opcional)">
             <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </Field>
+          <Field label="¿De qué cuenta sale este ahorro? (opcional)">
+            <Select value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+              <option value="">Sin especificar</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </Select>
+          </Field>
+          {balanceWarning && (
+            <div className="flex items-start gap-2 text-xs text-warn bg-warn/10 border border-warn/30 rounded-lg px-3 py-2.5">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+              <span>{balanceWarning}</span>
+            </div>
+          )}
           <Button type="submit" loading={saving} className="w-full">Guardar aporte</Button>
         </form>
       </Modal>

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { recomputeAccountBalances } from './accounts'
 
 export async function listGoals(userId) {
   const { data, error } = await supabase
@@ -11,10 +12,21 @@ export async function listGoals(userId) {
   return data
 }
 
-export async function createGoal(userId, { name, targetAmount, icon, color }) {
+export async function createGoal(userId, { name, targetAmount, icon, color, currency = 'DOP' }) {
   const { data, error } = await supabase
     .from('savings_goals')
-    .insert({ user_id: userId, name, target_amount: targetAmount, icon, color })
+    .insert({ user_id: userId, name, target_amount: targetAmount, icon, color, currency })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updateGoal(goalId, patch) {
+  const { data, error } = await supabase
+    .from('savings_goals')
+    .update(patch)
+    .eq('id', goalId)
     .select()
     .single()
   if (error) throw error
@@ -30,7 +42,7 @@ export async function deactivateGoal(goalId) {
 }
 
 /** Aporte a una meta: SIEMPRE un movimiento nuevo, nunca sobrescribe el anterior */
-export async function addContribution(userId, goalId, periodId, { amount, note, contributionDate }) {
+export async function addContribution(userId, goalId, periodId, { amount, note, contributionDate, accountId }) {
   const { data, error } = await supabase
     .from('savings_contributions')
     .insert({
@@ -39,17 +51,26 @@ export async function addContribution(userId, goalId, periodId, { amount, note, 
       period_id: periodId,
       amount,
       note,
+      account_id: accountId || null,
       contribution_date: contributionDate || new Date().toISOString().slice(0, 10),
     })
     .select()
     .single()
   if (error) throw error
+  if (data.account_id) await recomputeAccountBalances(userId, data.account_id)
   return data
 }
 
-export async function deleteContribution(contributionId) {
+export async function deleteContribution(contributionId, userId) {
+  const { data: existing, error: selectError } = await supabase
+    .from('savings_contributions')
+    .select('account_id')
+    .eq('id', contributionId)
+    .single()
+  if (selectError) throw selectError
   const { error } = await supabase.from('savings_contributions').delete().eq('id', contributionId)
   if (error) throw error
+  if (existing?.account_id) await recomputeAccountBalances(userId, existing.account_id)
 }
 
 /** El balance de una meta se calcula SUMANDO todos sus aportes históricos */

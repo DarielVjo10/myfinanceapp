@@ -62,3 +62,32 @@ export async function setBudget(userId, categoryId, periodId, budgetedAmount) {
   if (error) throw error
   return data
 }
+
+/** % de presupuesto consumido por categoría en un período (solo categorías con presupuesto asignado) */
+export async function getBudgetUsageForPeriod(userId, periodId) {
+  const [budgetRows, { data: expenseRows, error }] = await Promise.all([
+    getBudgetsForPeriod(userId, periodId),
+    supabase.from('expenses').select('amount, category_id').eq('user_id', userId).eq('period_id', periodId),
+  ])
+  if (error) throw error
+
+  const spentByCategory = {}
+  for (const e of expenseRows ?? []) {
+    if (!e.category_id) continue
+    spentByCategory[e.category_id] = (spentByCategory[e.category_id] ?? 0) + Number(e.amount)
+  }
+
+  return budgetRows
+    .filter((b) => Number(b.budgeted_amount) > 0)
+    .map((b) => {
+      const spent = spentByCategory[b.category_id] ?? 0
+      const budgeted = Number(b.budgeted_amount)
+      return {
+        categoryId: b.category_id,
+        categoryName: b.expense_categories?.name,
+        budgeted,
+        spent,
+        pct: (spent / budgeted) * 100,
+      }
+    })
+}

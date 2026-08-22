@@ -55,7 +55,7 @@ export default function Income() {
   }
 
   const handleDelete = async (id) => {
-    await deleteIncome(id)
+    await deleteIncome(id, user.id)
     load()
   }
 

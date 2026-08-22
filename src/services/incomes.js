@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { recomputeAccountBalances } from './accounts'
 
 export async function listIncomes(userId, periodId) {
   const { data, error } = await supabase
@@ -27,6 +28,7 @@ export async function createIncome(userId, periodId, { type = 'fixed', source, a
     .select()
     .single()
   if (error) throw error
+  if (data.account_id) await recomputeAccountBalances(userId, data.account_id)
   return data
 }
 
@@ -38,12 +40,20 @@ export async function updateIncome(incomeId, patch) {
     .select()
     .single()
   if (error) throw error
+  if (data.account_id) await recomputeAccountBalances(data.user_id, data.account_id)
   return data
 }
 
-export async function deleteIncome(incomeId) {
+export async function deleteIncome(incomeId, userId) {
+  const { data: existing, error: selectError } = await supabase
+    .from('incomes')
+    .select('account_id')
+    .eq('id', incomeId)
+    .single()
+  if (selectError) throw selectError
   const { error } = await supabase.from('incomes').delete().eq('id', incomeId)
   if (error) throw error
+  if (existing?.account_id) await recomputeAccountBalances(userId, existing.account_id)
 }
 
 export async function totalIncomeForPeriod(userId, periodId) {

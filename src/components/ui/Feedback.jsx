@@ -35,6 +35,21 @@ export function StatPill({ label, value, positive }) {
   )
 }
 
+/** Semáforo de presupuesto: verde <70%, ámbar 70-99%, rojo >=100% */
+export function BudgetBadge({ pct }) {
+  const bg =
+    pct >= 100
+      ? 'bg-alert/10 text-alert'
+      : pct >= 70
+      ? 'bg-warn/10 text-warn'
+      : 'bg-emerald-500/10 text-emerald-500'
+  return (
+    <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${bg}`}>
+      {Math.round(pct)}% del presupuesto
+    </span>
+  )
+}
+
 export function AnimatedNumber({ value, className = '' }) {
   return (
     <motion.span

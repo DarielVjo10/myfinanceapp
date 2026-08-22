@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { recomputeAccountBalances } from './accounts'
 
 export async function listExpenses(userId, periodId) {
   const { data, error } = await supabase
@@ -11,7 +12,7 @@ export async function listExpenses(userId, periodId) {
   return data
 }
 
-export async function createExpense(userId, periodId, { categoryId, accountId, amount, description, expenseDate }) {
+export async function createExpense(userId, periodId, { categoryId, accountId, amount, description, expenseDate, templateId }) {
   const { data, error } = await supabase
     .from('expenses')
     .insert({
@@ -22,10 +23,12 @@ export async function createExpense(userId, periodId, { categoryId, accountId, a
       amount,
       description,
       expense_date: expenseDate || new Date().toISOString().slice(0, 10),
+      template_id: templateId || null,
     })
     .select()
     .single()
   if (error) throw error
+  if (data.account_id) await recomputeAccountBalances(userId, data.account_id)
   return data
 }
 
@@ -37,12 +40,31 @@ export async function updateExpense(expenseId, patch) {
     .select()
     .single()
   if (error) throw error
+  if (data.account_id) await recomputeAccountBalances(data.user_id, data.account_id)
   return data
 }
 
-export async function deleteExpense(expenseId) {
+export async function deleteExpense(expenseId, userId) {
+  const { data: existing, error: selectError } = await supabase
+    .from('expenses')
+    .select('account_id')
+    .eq('id', expenseId)
+    .single()
+  if (selectError) throw selectError
   const { error } = await supabase.from('expenses').delete().eq('id', expenseId)
   if (error) throw error
+  if (existing?.account_id) await recomputeAccountBalances(userId, existing.account_id)
+}
+
+/** IDs de categorías que ya tienen al menos un gasto registrado en este período */
+export async function getExpensedCategoryIds(userId, periodId) {
+  const { data, error } = await supabase
+    .from('expenses')
+    .select('category_id')
+    .eq('user_id', userId)
+    .eq('period_id', periodId)
+  if (error) throw error
+  return new Set((data ?? []).map((e) => e.category_id))
 }
 
 export async function totalExpensesForPeriod(userId, periodId) {
@@ -88,4 +110,16 @@ export async function categoryTrend(userId, categoryId, periodIds) {
   for (const pid of periodIds) totals[pid] = 0
   for (const row of data) totals[row.period_id] += Number(row.amount)
   return totals
+}
+
+/**
+ * Promedio histórico de gasto en una categoría, usando solo períodos con
+ * gasto real (mínimo 3, si no hay suficiente historial no es significativo).
+ */
+export async function getCategoryHistoricalAverage(userId, categoryId, periodIds) {
+  if (periodIds.length === 0) return null
+  const totals = await categoryTrend(userId, categoryId, periodIds)
+  const nonZero = Object.values(totals).filter((v) => v > 0)
+  if (nonZero.length < 3) return null
+  return nonZero.reduce((s, v) => s + v, 0) / nonZero.length
 }

@@ -4,7 +4,7 @@ import { usePeriod } from '../contexts/PeriodContext'
 import { getInterestSettings, upsertInterestSettings, getFinancialSettings } from '../services/settings'
 import { buildMonthlyOverview, lastNPeriods } from '../services/analytics'
 import { expensesByCategory } from '../services/expenses'
-import { listCategories } from '../services/categories'
+import { listCategories, getBudgetUsageForPeriod } from '../services/categories'
 import { totalIncomeForPeriod } from '../services/incomes'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -69,6 +69,8 @@ export default function Analytics() {
         else wantsSpent += b.total
       }
 
+      const budgetUsage = await getBudgetUsageForPeriod(user.id, currentPeriod.id)
+
       const periods = lastNPeriods(allPeriods, 7) // últimos 6 + actual, para el promedio
       const monthly = await buildMonthlyOverview(user.id, periods)
       const currentMonth = monthly.find((m) => m.periodId === currentPeriod.id)
@@ -104,6 +106,12 @@ export default function Analytics() {
           )
         }
       }
+      for (const u of budgetUsage) {
+        if (u.pct >= 90) {
+          built.push(`Ya usaste ${formatPercent(u.pct)} del presupuesto de ${u.categoryName} este mes.`)
+        }
+      }
+
       setInsights(built)
       setLoading(false)
     })()

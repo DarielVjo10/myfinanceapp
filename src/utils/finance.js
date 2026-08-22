@@ -73,6 +73,42 @@ export function calculate503020({ needsSpent, wantsSpent, savingsAmount, income 
 }
 
 // ---------------------------------------------------------------------
+// Multi-moneda: conversión a DOP usando la tasa más reciente disponible
+// ---------------------------------------------------------------------
+/** null = no hay tasa disponible para esa moneda, no se puede convertir */
+export function convertToDOP(amount, currency, ratesToDOP) {
+  const amt = Number(amount)
+  if (!currency || currency === 'DOP') return amt
+  const rate = ratesToDOP?.[currency]
+  return rate ? amt * rate : null
+}
+
+// ---------------------------------------------------------------------
+// Deudas: proyección de meses para pagar con un pago mensual fijo
+// ---------------------------------------------------------------------
+/**
+ * Si el pago mensual no alcanza a cubrir el interés generado, la deuda
+ * nunca se termina de pagar (meses/interés vienen null).
+ */
+export function projectDebtPayoff({ balance, annualRate = 0, monthlyPayment }) {
+  if (balance <= 0) return { months: 0, totalInterest: 0 }
+  if (!monthlyPayment || monthlyPayment <= 0) return { months: null, totalInterest: null }
+
+  const r = annualRate / 100 / 12
+  if (r === 0) {
+    const months = Math.ceil(balance / monthlyPayment)
+    return { months, totalInterest: 0 }
+  }
+
+  const monthlyInterest = balance * r
+  if (monthlyPayment <= monthlyInterest) return { months: null, totalInterest: null }
+
+  const months = Math.ceil(-Math.log(1 - (balance * r) / monthlyPayment) / Math.log(1 + r))
+  const totalInterest = months * monthlyPayment - balance
+  return { months, totalInterest }
+}
+
+// ---------------------------------------------------------------------
 // Comparaciones entre períodos
 // ---------------------------------------------------------------------
 export function percentChange(current, previous) {
