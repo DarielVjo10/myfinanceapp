@@ -11,7 +11,8 @@ import { getNetWorthForPeriod, getNetWorthHistory } from '../services/networth'
 import { getAccountBalancesForPeriod } from '../services/accounts'
 import { autoGenerateRecurringExpenses } from '../services/recurring'
 import { getLatestRatesToDOP } from '../services/exchangeRates'
-import { percentChange, savingsRate, convertToDOP } from '../utils/finance'
+import { buildMonthlyOverview, lastNPeriods } from '../services/analytics'
+import { percentChange, absoluteChange, savingsRate, convertToDOP } from '../utils/finance'
 import { FinancialHero } from '../components/dashboard/FinancialHero'
 import { KpiGrid } from '../components/dashboard/KpiGrid'
 import { GoalRing } from '../components/dashboard/GoalRing'
@@ -21,7 +22,7 @@ import { Skeleton, EmptyState } from '../components/ui/Feedback'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { formatMoney, formatPercent } from '../utils/format'
-import { PiggyBank, Repeat, CalendarClock, Check, X, TrendingUp } from 'lucide-react'
+import { PiggyBank, Repeat, CalendarClock, Check, X, TrendingUp, TrendingDown } from 'lucide-react'
 
 // % de aumento vs el promedio de los últimos 3 meses para disparar una alerta
 const CATEGORY_ALERT_THRESHOLD = 0.2
@@ -88,6 +89,28 @@ export default function Dashboard() {
       categoryAlerts = alerts.filter(Boolean).sort((a, b) => b.pctChange - a.pctChange)
     }
 
+    // promedios de 3/6/12 meses + comparación vs el mes inmediatamente
+    // anterior (no el mes anterior "seleccionado" — eso ya existe en
+    // History.jsx como comparación manual entre dos períodos cualquiera)
+    const last12 = lastNPeriods(allPeriods.slice(0, currentIdx + 1), 12)
+    const monthlyOverview = await buildMonthlyOverview(user.id, last12)
+    const avgOf = (n, key) => {
+      const slice = monthlyOverview.slice(-n)
+      return slice.length === 0 ? 0 : slice.reduce((s, m) => s + m[key], 0) / slice.length
+    }
+    const averages = {
+      expenses: { m3: avgOf(3, 'expenses'), m6: avgOf(6, 'expenses'), m12: avgOf(12, 'expenses') },
+      savings: { m3: avgOf(3, 'savings'), m6: avgOf(6, 'savings'), m12: avgOf(12, 'savings') },
+    }
+    const prevMonth = monthlyOverview.length >= 2 ? monthlyOverview[monthlyOverview.length - 2] : null
+    const currentRate = savingsRate(income, savings)
+    const monthComparison = prevMonth ? {
+      income: { pct: percentChange(income, prevMonth.income), diff: absoluteChange(income, prevMonth.income) },
+      expenses: { pct: percentChange(expenses, prevMonth.expenses), diff: absoluteChange(expenses, prevMonth.expenses) },
+      savings: { pct: percentChange(savings, prevMonth.savings), diff: absoluteChange(savings, prevMonth.savings) },
+      savingsRate: { pct: percentChange(currentRate, savingsRate(prevMonth.income, prevMonth.savings)), diff: currentRate - savingsRate(prevMonth.income, prevMonth.savings) },
+    } : null
+
     setData({
       income,
       expenses,
@@ -97,6 +120,8 @@ export default function Dashboard() {
       goals,
       categoryBreakdown,
       categoryAlerts,
+      averages,
+      monthComparison,
       // convierte cada cuenta a DOP con la tasa más reciente antes de sumar
       available: balances.reduce((s, b) => {
         const converted = convertToDOP(b.balance, b.accounts?.currency, ratesToDOP)
@@ -219,6 +244,38 @@ export default function Dashboard() {
         </Card>
       )}
 
+      <Card>
+        <CardHeader title="Promedios y comparación" subtitle="Este mes vs el mes anterior, y promedios recientes" />
+        {data.monthComparison ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+            <MonthComparisonStat label="Ingresos" value={data.income} change={data.monthComparison.income} />
+            <MonthComparisonStat label="Gastos" value={data.expenses} change={data.monthComparison.expenses} invert />
+            <MonthComparisonStat label="Ahorro" value={data.savings} change={data.monthComparison.savings} />
+            <MonthComparisonStat label="Tasa de Ahorro" value={savingsRate(data.income, data.savings)} change={data.monthComparison.savingsRate} isPercent />
+          </div>
+        ) : (
+          <p className="text-xs text-ink-faint mb-5">Aún no hay un mes anterior con el que comparar.</p>
+        )}
+        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+          <div>
+            <p className="text-ink-faint text-xs mb-2">Gasto promedio mensual</p>
+            <div className="flex gap-4">
+              <AverageStat label="3m" value={data.averages.expenses.m3} />
+              <AverageStat label="6m" value={data.averages.expenses.m6} />
+              <AverageStat label="12m" value={data.averages.expenses.m12} />
+            </div>
+          </div>
+          <div>
+            <p className="text-ink-faint text-xs mb-2">Ahorro promedio mensual</p>
+            <div className="flex gap-4">
+              <AverageStat label="3m" value={data.averages.savings.m3} />
+              <AverageStat label="6m" value={data.averages.savings.m6} />
+              <AverageStat label="12m" value={data.averages.savings.m12} />
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {upcomingPayments.length > 0 && (
         <Card>
           <CardHeader title="Próximos pagos" subtitle="Categorías con fecha límite sin pagar este mes" icon={CalendarClock} />
@@ -288,5 +345,29 @@ export default function Dashboard() {
         </Card>
       </div>
     </motion.div>
+  )
+}
+
+function MonthComparisonStat({ label, value, change, invert = false, isPercent = false }) {
+  const isGood = invert ? change.pct <= 0 : change.pct >= 0
+  return (
+    <div>
+      <p className="text-ink-faint text-xs mb-1">{label}</p>
+      <p className="tabular font-display font-semibold text-ink">{isPercent ? formatPercent(value) : formatMoney(value)}</p>
+      <div className={`flex items-center gap-1 text-xs mt-0.5 ${isGood ? 'text-emerald-500' : 'text-alert'}`}>
+        {isGood ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+        <span className="tabular">{formatPercent(Math.abs(change.pct))}</span>
+        <span className="text-ink-faint">vs. mes anterior</span>
+      </div>
+    </div>
+  )
+}
+
+function AverageStat({ label, value }) {
+  return (
+    <div>
+      <p className="text-[10px] text-ink-faint">{label}</p>
+      <p className="tabular text-sm font-medium text-ink">{formatMoney(value)}</p>
+    </div>
   )
 }
