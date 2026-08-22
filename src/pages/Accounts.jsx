@@ -16,6 +16,7 @@ import {
   computeAccountBalance,
   getDistributionsForPeriod,
   setDistribution,
+  getInterestHistoryForAccount,
 } from '../services/accounts'
 import { listAccountTypes, createAccountType, deleteAccountType } from '../services/accountTypes'
 import { listTransfersForPeriod, createTransfer, deleteTransfer } from '../services/transfers'
@@ -29,7 +30,8 @@ import { Modal } from '../components/ui/Modal'
 import { Field, Input, Select } from '../components/ui/Input'
 import { GranularitySelector } from '../components/ui/GranularitySelector'
 import { NetWorthLineChart } from '../components/charts/NetWorthLineChart'
-import { formatMoney } from '../utils/format'
+import { InterestBarChart } from '../components/charts/InterestBarChart'
+import { formatMoney, monthShort } from '../utils/format'
 
 const CURRENCIES = ['DOP', 'USD']
 
@@ -60,6 +62,7 @@ export default function Accounts() {
   const [ratesToDOP, setRatesToDOP] = useState({})
   const [balanceGranularity, setBalanceGranularity] = useState('month')
   const [balanceSeries, setBalanceSeries] = useState(null)
+  const [interestHistory, setInterestHistory] = useState(null)
 
   const load = async () => {
     const accs = await listAccounts(user.id)
@@ -121,6 +124,13 @@ export default function Accounts() {
     setExpandedAccountId(accountId)
     setBalanceSeries(null)
     getBalanceSeriesGrouped(user.id, { entityType: 'account', entityId: accountId, granularity: balanceGranularity, lang: language }).then(setBalanceSeries)
+    const acc = accounts.find((a) => a.id === accountId)
+    if (acc && Number(acc.annual_interest_rate) > 0) {
+      setInterestHistory(null)
+      getInterestHistoryForAccount(user.id, accountId, Number(acc.annual_interest_rate)).then(setInterestHistory)
+    } else {
+      setInterestHistory(null)
+    }
     if (!breakdownByAccount[accountId]) {
       const b = await getAccountMovementBreakdown(user.id, accountId, currentPeriod.id)
       setBreakdownByAccount((prev) => ({ ...prev, [accountId]: b }))
@@ -553,6 +563,27 @@ export default function Accounts() {
                     >
                       Registrar interés generado
                     </button>
+                  </div>
+                )}
+
+                {expanded && Number(acc.annual_interest_rate) > 0 && (
+                  <div className="mt-3 ml-[42px]">
+                    <p className="text-xs font-medium text-ink-muted mb-2">Interés generado por mes</p>
+                    {interestHistory ? (
+                      interestHistory.length > 1 ? (
+                        <>
+                          <InterestBarChart data={interestHistory.map((r) => ({ label: monthShort(r.year, r.month, language), value: r.value, isReal: r.isReal }))} />
+                          <p className="text-xs text-ink-faint mt-1.5 flex items-center gap-3">
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Real (registrado)</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-300 inline-block" /> Estimado</span>
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-ink-faint">Aún no hay suficiente historial para graficar el interés por mes.</p>
+                      )
+                    ) : (
+                      <p className="text-xs text-ink-faint">Cargando…</p>
+                    )}
                   </div>
                 )}
               </div>

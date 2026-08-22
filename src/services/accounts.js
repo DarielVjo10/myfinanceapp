@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { estimateMonthlyInterest } from '../utils/finance'
 
 export async function listAccounts(userId) {
   const { data, error } = await supabase
@@ -83,6 +84,49 @@ export async function getAccountBalanceHistory(userId, accountId) {
     .eq('account_id', accountId)
   if (error) throw error
   return data
+}
+
+// Texto fijo que escribe handleRegisterInterest al crear el ingreso — se usa
+// para identificar cuáles ingresos son interés REAL registrado por el
+// usuario (vs. estimado) sin necesitar una columna/flag nueva.
+const REGISTERED_INTEREST_DESCRIPTION = 'Interés generado registrado desde Cuentas'
+
+/**
+ * Interés generado mes a mes para una cuenta con tasa de interés. Si el
+ * usuario ya registró el interés real ese mes (botón "Registrar interés
+ * generado" en Accounts.jsx), usa ese monto real; si no, estima
+ * balance × tasa anual / 12. Cada punto indica isReal para que la UI
+ * pueda distinguir uno de otro (ej. color u opacidad distinta).
+ */
+export async function getInterestHistoryForAccount(userId, accountId, annualInterestRate) {
+  const [balanceHistory, { data: realIncomes, error }] = await Promise.all([
+    getAccountBalanceHistory(userId, accountId),
+    supabase
+      .from('incomes')
+      .select('amount, period_id')
+      .eq('user_id', userId)
+      .eq('account_id', accountId)
+      .eq('description', REGISTERED_INTEREST_DESCRIPTION),
+  ])
+  if (error) throw error
+
+  const realByPeriod = {}
+  for (const row of realIncomes ?? []) {
+    realByPeriod[row.period_id] = (realByPeriod[row.period_id] ?? 0) + Number(row.amount)
+  }
+
+  return balanceHistory
+    .filter((r) => r.monthly_periods)
+    .map((r) => {
+      const real = realByPeriod[r.period_id]
+      return {
+        year: r.monthly_periods.year,
+        month: r.monthly_periods.month,
+        value: real ?? estimateMonthlyInterest(Number(r.balance), annualInterestRate),
+        isReal: real != null,
+      }
+    })
+    .sort((a, b) => (a.year - b.year) || (a.month - b.month))
 }
 
 // ------------ Ledger: balance calculado a partir de movimientos históricos ------------
