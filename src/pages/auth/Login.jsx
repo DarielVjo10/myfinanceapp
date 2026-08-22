@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Banknote } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Field, Input } from '../../components/ui/Input'
+import { Field, Input, PasswordInput } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { translateAuthError, normalizeEmail } from '../../utils/authErrors'
 
 const container = {
   hidden: {},
@@ -27,10 +28,10 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const { error } = await signInWithPassword(email, password)
+    const { error } = await signInWithPassword(normalizeEmail(email), password)
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(translateAuthError(error))
       return
     }
     navigate('/')
@@ -79,8 +80,7 @@ export default function Login() {
               />
             </Field>
             <Field label="Contraseña">
-              <Input
-                type="password"
+              <PasswordInput
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

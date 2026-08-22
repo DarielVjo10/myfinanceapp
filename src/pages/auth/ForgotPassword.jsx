@@ -4,6 +4,7 @@ import { CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { Field, Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { translateAuthError, normalizeEmail } from '../../utils/authErrors'
 
 export default function ForgotPassword() {
   const { resetPassword } = useAuth()
@@ -16,9 +17,9 @@ export default function ForgotPassword() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const { error } = await resetPassword(email)
+    const { error } = await resetPassword(normalizeEmail(email))
     setLoading(false)
-    if (error) return setError(error.message)
+    if (error) return setError(translateAuthError(error))
     setSent(true)
   }
 
@@ -37,7 +38,18 @@ export default function ForgotPassword() {
             <p className="text-ink-muted text-sm mb-6">Te enviaremos un enlace a tu correo.</p>
             <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="Correo">
-                <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@correo.com"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck="false"
+                  inputMode="email"
+                />
               </Field>
               {error && <p className="text-alert text-sm">{error}</p>}
               <Button type="submit" loading={loading} className="w-full">

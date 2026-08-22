@@ -2,23 +2,38 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CheckCircle2, Banknote } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
-import { Field, Input } from '../../components/ui/Input'
+import { Field, PasswordInput } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { translateAuthError } from '../../utils/authErrors'
+
+const PASSWORD_MIN_LENGTH = 8
+const hasLetterAndNumber = (pw) => /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw)
 
 export default function ResetPassword() {
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
     setError('')
+
+    if (password.length < PASSWORD_MIN_LENGTH || !hasLetterAndNumber(password)) {
+      setError(`La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres, con letras y números.`)
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.')
+      return
+    }
+
+    setLoading(true)
     const { error } = await supabase.auth.updateUser({ password })
     setLoading(false)
-    if (error) return setError(error.message)
+    if (error) return setError(translateAuthError(error))
     setDone(true)
   }
 
@@ -45,13 +60,24 @@ export default function ResetPassword() {
               <h1 className="font-display font-semibold text-lg text-ink mb-1">Nueva contraseña</h1>
               <p className="text-ink-muted text-sm mb-6">Elige una contraseña nueva para tu cuenta.</p>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <Field label="Contraseña nueva" hint="Mínimo 8 caracteres">
-                  <Input
-                    type="password"
+                <Field label="Contraseña nueva" hint="Mínimo 8 caracteres, con letras y números">
+                  <PasswordInput
                     required
-                    minLength={8}
+                    minLength={PASSWORD_MIN_LENGTH}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck="false"
+                  />
+                </Field>
+                <Field label="Confirmar contraseña">
+                  <PasswordInput
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                     autoComplete="new-password"
                     autoCapitalize="none"

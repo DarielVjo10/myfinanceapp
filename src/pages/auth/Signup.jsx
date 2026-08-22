@@ -1,30 +1,55 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Banknote, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Field, Input } from '../../components/ui/Input'
+import { Field, Input, PasswordInput } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { translateAuthError, normalizeEmail } from '../../utils/authErrors'
+
+const PASSWORD_MIN_LENGTH = 8
+const hasLetterAndNumber = (pw) => /[a-zA-Z]/.test(pw) && /[0-9]/.test(pw)
 
 export default function Signup() {
   const { signUp } = useAuth()
-  const navigate = useNavigate()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [sentTo, setSentTo] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    setLoading(true)
-    const { error } = await signUp(email, password, fullName)
-    setLoading(false)
-    if (error) {
-      setError(error.message)
+
+    if (password.length < PASSWORD_MIN_LENGTH || !hasLetterAndNumber(password)) {
+      setError(`La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres, con letras y números.`)
       return
     }
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.')
+      return
+    }
+
+    setLoading(true)
+    const cleanEmail = normalizeEmail(email)
+    const { data, error } = await signUp(cleanEmail, password, fullName.trim())
+    setLoading(false)
+    if (error) {
+      setError(translateAuthError(error))
+      return
+    }
+    // Supabase no devuelve un error explícito de "correo ya registrado"
+    // (previene enumeración de usuarios): para un correo ya existente,
+    // `identities` viene vacío en vez de tener al menos una identidad — así
+    // se detecta el duplicado sin necesitar un endpoint admin.
+    if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      setError('Ya existe una cuenta con este correo. Inicia sesión, o si te registraste con Google, usa "Continuar con Google" desde el login.')
+      return
+    }
+    setSentTo(cleanEmail)
     setDone(true)
   }
 
@@ -35,7 +60,7 @@ export default function Signup() {
           <CheckCircle2 size={32} className="text-emerald-500 mx-auto mb-3" />
           <h1 className="font-display font-semibold text-lg text-ink mb-1">Revisa tu correo</h1>
           <p className="text-ink-muted text-sm mb-5">
-            Te enviamos un enlace de confirmación a {email}. Al confirmar, crearemos automáticamente
+            Te enviamos un enlace de confirmación a {sentTo}. Al confirmar, crearemos automáticamente
             tus cuentas y categorías por defecto.
           </p>
           <Link to="/login">
@@ -78,13 +103,24 @@ export default function Signup() {
                 inputMode="email"
               />
             </Field>
-            <Field label="Contraseña" hint="Mínimo 8 caracteres">
-              <Input
-                type="password"
+            <Field label="Contraseña" hint="Mínimo 8 caracteres, con letras y números">
+              <PasswordInput
                 required
-                minLength={8}
+                minLength={PASSWORD_MIN_LENGTH}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck="false"
+              />
+            </Field>
+            <Field label="Confirmar contraseña">
+              <PasswordInput
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="new-password"
                 autoCapitalize="none"
