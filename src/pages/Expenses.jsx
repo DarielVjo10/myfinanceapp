@@ -263,40 +263,43 @@ export default function Expenses() {
             }
             const usage = budgetUsage.find((u) => u.categoryId === c.id)
             return (
-              <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
+              <li key={c.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 py-2.5">
+                <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
                   <Tags size={14} className="text-ink-faint shrink-0" />
                   <span className="text-sm text-ink truncate">{c.name}</span>
                   <span className="text-xs text-ink-faint bg-surface-sunken px-2 py-0.5 rounded-full shrink-0">{CLASSIFICATION_LABELS[c.classification] || c.classification}</span>
                   {usage && <BudgetBadge pct={usage.pct} />}
                 </div>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Presupuesto"
-                  className="max-w-[110px] text-right tabular shrink-0"
-                  value={budgetByCategory[c.id] ?? ''}
-                  onChange={(e) => handleBudgetChange(c.id, e.target.value)}
-                  onBlur={(e) => handleBudgetBlur(c.id, e.target.value)}
-                />
-                <Input
-                  type="number"
-                  min="1"
-                  max="31"
-                  placeholder="Día venc."
-                  className="max-w-[85px] text-right tabular shrink-0"
-                  defaultValue={c.due_day ?? ''}
-                  onBlur={(e) => handleDueDayBlur(c.id, e.target.value)}
-                />
-                <button onClick={() => openTrend(c)} className="text-ink-faint hover:text-info transition-colors shrink-0" aria-label="Ver tendencia">
-                  <BarChart3 size={15} />
-                </button>
-                <button onClick={() => startEditCategory(c)} className="text-ink-faint hover:text-emerald-500 transition-colors shrink-0">
-                  <Pencil size={15} />
-                </button>
-                <button onClick={async () => { await deactivateCategory(c.id); load() }} className="text-ink-faint hover:text-alert transition-colors shrink-0">
-                  <Trash2 size={15} />
-                </button>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Presupuesto"
+                    className="flex-1 sm:max-w-[110px] text-right tabular"
+                    value={budgetByCategory[c.id] ?? ''}
+                    onChange={(e) => handleBudgetChange(c.id, e.target.value)}
+                    onBlur={(e) => handleBudgetBlur(c.id, e.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="Día venc."
+                    title="Día del mes en que vence el pago de esta categoría (opcional)"
+                    className="w-16 sm:max-w-[85px] text-right tabular shrink-0"
+                    defaultValue={c.due_day ?? ''}
+                    onBlur={(e) => handleDueDayBlur(c.id, e.target.value)}
+                  />
+                  <button onClick={() => openTrend(c)} className="text-ink-faint hover:text-info transition-colors shrink-0" aria-label="Ver tendencia">
+                    <BarChart3 size={15} />
+                  </button>
+                  <button onClick={() => startEditCategory(c)} className="text-ink-faint hover:text-emerald-500 transition-colors shrink-0">
+                    <Pencil size={15} />
+                  </button>
+                  <button onClick={async () => { await deactivateCategory(c.id); load() }} className="text-ink-faint hover:text-alert transition-colors shrink-0">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </li>
             )
           })}

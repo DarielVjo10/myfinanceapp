@@ -239,7 +239,7 @@ export function emergencyFundStatus(months) {
  * expuesto en el resultado para mostrar transparentemente de qué se compone:
  * - Fondo de emergencia: min(100, mesesCubiertos / 6 * 100) — 6 meses de
  *   gasto cubierto = 100 puntos (el umbral "sólido" de emergencyFundStatus).
- * - Tasa de ahorro: el % tal cual, capado a 0-100.
+ * - Porcentaje de ahorro: el % tal cual, capado a 0-100.
  * - Adherencia al presupuesto: % de categorías con presupuesto asignado que
  *   NO lo excedieron este período.
  * - Uso de tarjetas: 100 − % de uso promedio del límite de crédito (menos
@@ -251,7 +251,7 @@ export function computeFinancialHealthScore({ emergencyFundMonths, savingsRatePc
     components.push({ key: 'emergencyFund', label: 'Fondo de emergencia', score: Math.min(100, (emergencyFundMonths / 6) * 100) })
   }
   if (savingsRatePct != null) {
-    components.push({ key: 'savingsRate', label: 'Tasa de ahorro', score: Math.max(0, Math.min(100, savingsRatePct)) })
+    components.push({ key: 'savingsRate', label: 'Porcentaje de ahorro', score: Math.max(0, Math.min(100, savingsRatePct)) })
   }
   if (budgetAdherencePct != null) {
     components.push({ key: 'budgetAdherence', label: 'Adherencia al presupuesto', score: budgetAdherencePct })

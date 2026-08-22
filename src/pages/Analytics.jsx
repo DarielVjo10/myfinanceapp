@@ -93,7 +93,7 @@ export default function Analytics() {
         )
       }
       if (currentMonth) {
-        built.push(`Tu tasa de ahorro este mes es de ${formatPercent(currentMonth.savingsRate)}.`)
+        built.push(`Tu porcentaje de ahorro este mes es de ${formatPercent(currentMonth.savingsRate)}.`)
       }
       if (priorMonths.length > 0) {
         const priorSavingsAvg = priorMonths.reduce((s, m) => s + m.savings, 0) / priorMonths.length

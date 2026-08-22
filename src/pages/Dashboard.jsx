@@ -227,7 +227,7 @@ export default function Dashboard() {
       tooltip: 'Ingresos − Gastos − Ahorros de este período. Es la parte de tu ingreso que aún no has gastado ni ahorrado.',
     },
     {
-      label: 'Tasa de Ahorro',
+      label: 'Porcentaje de Ahorro',
       value: rate,
       isPercent: true,
       tooltip: 'Aportes a metas de ahorro como % de tus ingresos de este período. Entre más alto, mayor proporción de lo que ganas estás ahorrando.',
@@ -286,7 +286,7 @@ export default function Dashboard() {
             title={
               <span className="flex items-center gap-1.5">
                 Salud Financiera
-                <InfoTooltip text="Promedio de las métricas disponibles: fondo de emergencia (meses de gasto cubiertos, 6+ = 100pts), tasa de ahorro, % de categorías dentro de presupuesto, y uso de tarjetas de crédito (menos uso = mejor). Es un criterio propio de la app, no un estándar oficial — cada componente se muestra abajo." />
+                <InfoTooltip text="Promedio de las métricas disponibles: fondo de emergencia (meses de gasto cubiertos, 6+ = 100pts), porcentaje de ahorro, % de categorías dentro de presupuesto, y uso de tarjetas de crédito (menos uso = mejor). Es un criterio propio de la app, no un estándar oficial — cada componente se muestra abajo." />
               </span>
             }
           />
@@ -319,15 +319,15 @@ export default function Dashboard() {
             <MonthComparisonStat label="Ingresos" value={data.income} change={data.monthComparison.income} />
             <MonthComparisonStat label="Gastos" value={data.expenses} change={data.monthComparison.expenses} invert />
             <MonthComparisonStat label="Ahorro" value={data.savings} change={data.monthComparison.savings} />
-            <MonthComparisonStat label="Tasa de Ahorro" value={savingsRate(data.income, data.savings)} change={data.monthComparison.savingsRate} isPercent />
+            <MonthComparisonStat label="Porcentaje de Ahorro" value={savingsRate(data.income, data.savings)} change={data.monthComparison.savingsRate} isPercent />
           </div>
         ) : (
           <p className="text-xs text-ink-faint mb-5">Aún no hay un mes anterior con el que comparar.</p>
         )}
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-4 pt-4 border-t border-border">
           <div>
             <p className="text-ink-faint text-xs mb-2">Gasto promedio mensual</p>
-            <div className="flex gap-4">
+            <div className="grid grid-cols-3 gap-2">
               <AverageStat label="3m" value={data.averages.expenses.m3} />
               <AverageStat label="6m" value={data.averages.expenses.m6} />
               <AverageStat label="12m" value={data.averages.expenses.m12} />
@@ -335,7 +335,7 @@ export default function Dashboard() {
           </div>
           <div>
             <p className="text-ink-faint text-xs mb-2">Ahorro promedio mensual</p>
-            <div className="flex gap-4">
+            <div className="grid grid-cols-3 gap-2">
               <AverageStat label="3m" value={data.averages.savings.m3} />
               <AverageStat label="6m" value={data.averages.savings.m6} />
               <AverageStat label="12m" value={data.averages.savings.m12} />
