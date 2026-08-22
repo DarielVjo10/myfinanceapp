@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 export async function listAccounts(userId) {
   const { data, error } = await supabase
     .from('accounts')
-    .select('*')
+    .select('*, account_types(name)')
     .eq('user_id', userId)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
@@ -11,10 +11,19 @@ export async function listAccounts(userId) {
   return data
 }
 
-export async function createAccount(userId, { name, type = 'bank', color, icon, currency = 'DOP' }) {
+export async function createAccount(userId, { name, type = 'bank', color, icon, currency = 'DOP', accountTypeId, annualInterestRate = 0 }) {
   const { data, error } = await supabase
     .from('accounts')
-    .insert({ user_id: userId, name, type, color, icon, currency })
+    .insert({
+      user_id: userId,
+      name,
+      type,
+      color,
+      icon,
+      currency,
+      account_type_id: accountTypeId || null,
+      annual_interest_rate: annualInterestRate,
+    })
     .select()
     .single()
   if (error) throw error

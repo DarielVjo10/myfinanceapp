@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, TrendingDown, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, TrendingDown, AlertTriangle, Tags, Pencil, X, Check } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { listExpenses, createExpense, deleteExpense, getCategoryHistoricalAverage } from '../services/expenses'
-import { listCategories, getBudgetUsageForPeriod } from '../services/categories'
+import {
+  listCategories,
+  createCategory,
+  updateCategory,
+  deactivateCategory,
+  getBudgetsForPeriod,
+  setBudget,
+  getBudgetUsageForPeriod,
+} from '../services/categories'
 import { listAccounts, computeAccountBalance } from '../services/accounts'
-import { Card } from '../components/ui/Card'
+import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { Field, Input, Select } from '../components/ui/Input'
@@ -25,18 +33,24 @@ export default function Expenses() {
   const [budgetUsage, setBudgetUsage] = useState([])
   const [anomalyAverage, setAnomalyAverage] = useState(null)
   const [anomalyConfirmed, setAnomalyConfirmed] = useState(false)
+  const [budgetByCategory, setBudgetByCategory] = useState({})
+  const [newCategory, setNewCategory] = useState({ name: '', classification: 'wants' })
+  const [editingCategoryId, setEditingCategoryId] = useState(null)
+  const [editCategoryForm, setEditCategoryForm] = useState({ name: '', classification: 'wants' })
 
   const load = async () => {
-    const [exp, cats, accs, usage] = await Promise.all([
+    const [exp, cats, accs, usage, budgets] = await Promise.all([
       listExpenses(user.id, currentPeriod.id),
       listCategories(user.id),
       listAccounts(user.id),
       getBudgetUsageForPeriod(user.id, currentPeriod.id),
+      getBudgetsForPeriod(user.id, currentPeriod.id),
     ])
     setExpenses(exp)
     setCategories(cats)
     setAccounts(accs)
     setBudgetUsage(usage)
+    setBudgetByCategory(Object.fromEntries(budgets.map((b) => [b.category_id, b.budgeted_amount])))
     setForm((f) => ({ ...f, categoryId: f.categoryId || cats[0]?.id || '' }))
   }
 
@@ -113,6 +127,40 @@ export default function Expenses() {
     load()
   }
 
+  const handleAddCategory = async (e) => {
+    e.preventDefault()
+    if (!newCategory.name.trim()) return
+    await createCategory(user.id, newCategory)
+    setNewCategory({ name: '', classification: 'wants' })
+    load()
+  }
+
+  const startEditCategory = (c) => {
+    setEditingCategoryId(c.id)
+    setEditCategoryForm({ name: c.name, classification: c.classification })
+  }
+  const cancelEditCategory = () => setEditingCategoryId(null)
+  const saveEditCategory = async (categoryId) => {
+    if (!editCategoryForm.name.trim()) return
+    await updateCategory(categoryId, { name: editCategoryForm.name, classification: editCategoryForm.classification })
+    setEditingCategoryId(null)
+    load()
+  }
+
+  const handleBudgetChange = (categoryId, value) => {
+    setBudgetByCategory((b) => ({ ...b, [categoryId]: value }))
+  }
+  const handleBudgetBlur = async (categoryId, value) => {
+    if (value === '' || value === undefined) return
+    await setBudget(user.id, categoryId, currentPeriod.id, Number(value))
+    load()
+  }
+
+  const handleDueDayBlur = async (categoryId, value) => {
+    await updateCategory(categoryId, { due_day: value === '' ? null : Number(value) })
+    load()
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -153,6 +201,84 @@ export default function Expenses() {
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card>
+        <CardHeader title="Categorías" subtitle="Clasificación, presupuesto y fecha límite de este mes" icon={Tags} />
+        <ul className="divide-y divide-border mb-4">
+          {categories.map((c) => {
+            if (editingCategoryId === c.id) {
+              return (
+                <li key={c.id} className="flex items-center gap-2 py-2.5">
+                  <Input
+                    value={editCategoryForm.name}
+                    onChange={(e) => setEditCategoryForm({ ...editCategoryForm, name: e.target.value })}
+                    className="flex-1"
+                  />
+                  <Select
+                    value={editCategoryForm.classification}
+                    onChange={(e) => setEditCategoryForm({ ...editCategoryForm, classification: e.target.value })}
+                    className="max-w-[130px]"
+                  >
+                    <option value="needs">Necesidad</option>
+                    <option value="wants">Deseo</option>
+                    <option value="savings">Ahorro</option>
+                  </Select>
+                  <button onClick={() => saveEditCategory(c.id)} className="text-emerald-500 hover:text-emerald-400 transition-colors shrink-0">
+                    <Check size={16} />
+                  </button>
+                  <button onClick={cancelEditCategory} className="text-ink-faint hover:text-ink transition-colors shrink-0">
+                    <X size={16} />
+                  </button>
+                </li>
+              )
+            }
+            const usage = budgetUsage.find((u) => u.categoryId === c.id)
+            return (
+              <li key={c.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Tags size={14} className="text-ink-faint shrink-0" />
+                  <span className="text-sm text-ink truncate">{c.name}</span>
+                  <span className="text-xs text-ink-faint bg-surface-sunken px-2 py-0.5 rounded-full capitalize shrink-0">{c.classification}</span>
+                  {usage && <BudgetBadge pct={usage.pct} />}
+                </div>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="Presupuesto"
+                  className="max-w-[110px] text-right tabular shrink-0"
+                  value={budgetByCategory[c.id] ?? ''}
+                  onChange={(e) => handleBudgetChange(c.id, e.target.value)}
+                  onBlur={(e) => handleBudgetBlur(c.id, e.target.value)}
+                />
+                <Input
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="Día venc."
+                  className="max-w-[85px] text-right tabular shrink-0"
+                  defaultValue={c.due_day ?? ''}
+                  onBlur={(e) => handleDueDayBlur(c.id, e.target.value)}
+                />
+                <button onClick={() => startEditCategory(c)} className="text-ink-faint hover:text-emerald-500 transition-colors shrink-0">
+                  <Pencil size={15} />
+                </button>
+                <button onClick={async () => { await deactivateCategory(c.id); load() }} className="text-ink-faint hover:text-alert transition-colors shrink-0">
+                  <Trash2 size={15} />
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+        <form onSubmit={handleAddCategory} className="flex gap-2">
+          <Input placeholder="Nueva categoría" value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} />
+          <Select value={newCategory.classification} onChange={(e) => setNewCategory({ ...newCategory, classification: e.target.value })} className="max-w-[130px]">
+            <option value="needs">Necesidad</option>
+            <option value="wants">Deseo</option>
+            <option value="savings">Ahorro</option>
+          </Select>
+          <Button type="submit" className="shrink-0"><Plus size={16} /></Button>
+        </form>
       </Card>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo gasto">

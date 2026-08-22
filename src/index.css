@@ -38,7 +38,15 @@ body {
 .tabular {
   font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+}
+
+/* Números grandes (patrimonio neto, hero) quieren tracking más negativo
+   y leading más apretado que los montos pequeños de listas — el tracking
+   no debe ser un valor fijo para todos los tamaños. */
+.tabular-display {
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
 ::selection {

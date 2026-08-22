@@ -12,10 +12,19 @@ export async function listGoals(userId) {
   return data
 }
 
-export async function createGoal(userId, { name, targetAmount, icon, color, currency = 'DOP' }) {
+export async function createGoal(userId, { name, targetAmount, icon, color, currency = 'DOP', targetDate, plannedMonthlyContribution }) {
   const { data, error } = await supabase
     .from('savings_goals')
-    .insert({ user_id: userId, name, target_amount: targetAmount, icon, color, currency })
+    .insert({
+      user_id: userId,
+      name,
+      target_amount: targetAmount,
+      icon,
+      color,
+      currency,
+      target_date: targetDate || null,
+      planned_monthly_contribution: plannedMonthlyContribution || null,
+    })
     .select()
     .single()
   if (error) throw error
@@ -42,7 +51,7 @@ export async function deactivateGoal(goalId) {
 }
 
 /** Aporte a una meta: SIEMPRE un movimiento nuevo, nunca sobrescribe el anterior */
-export async function addContribution(userId, goalId, periodId, { amount, note, contributionDate, accountId }) {
+export async function addContribution(userId, goalId, periodId, { amount, note, contributionDate, accountId, contributionType = 'planned' }) {
   const { data, error } = await supabase
     .from('savings_contributions')
     .insert({
@@ -52,6 +61,7 @@ export async function addContribution(userId, goalId, periodId, { amount, note, 
       amount,
       note,
       account_id: accountId || null,
+      contribution_type: contributionType,
       contribution_date: contributionDate || new Date().toISOString().slice(0, 10),
     })
     .select()

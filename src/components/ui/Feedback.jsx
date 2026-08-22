@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { useEffect } from 'react'
 
 export function Skeleton({ className = '' }) {
   return (
@@ -50,16 +51,15 @@ export function BudgetBadge({ pct }) {
   )
 }
 
-export function AnimatedNumber({ value, className = '' }) {
-  return (
-    <motion.span
-      key={value}
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      className={`tabular ${className}`}
-    >
-      {value}
-    </motion.span>
-  )
+/** Interpola el número mismo (no solo un fade) — cuenta hacia el nuevo valor en vez de saltar de golpe */
+export function AnimatedNumber({ value, format = (n) => n, className = '' }) {
+  const motionValue = useMotionValue(value)
+  const spring = useSpring(motionValue, { duration: 0.6, bounce: 0 })
+  const display = useTransform(spring, (v) => format(v))
+
+  useEffect(() => {
+    motionValue.set(value)
+  }, [value, motionValue])
+
+  return <motion.span className={`tabular ${className}`}>{display}</motion.span>
 }

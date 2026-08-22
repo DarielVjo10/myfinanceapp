@@ -35,7 +35,7 @@ export function GoalRing({ label, current, target, size = 96, strokeWidth = 8 })
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 0.9, ease: 'easeOut' }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.7 }}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center flex-col">

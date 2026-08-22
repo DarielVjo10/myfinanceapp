@@ -18,8 +18,9 @@ export function FinancialHero({ netWorth, growthPct, income, expenses, savings, 
         <p className="text-emerald-200/70 text-sm font-medium mb-1">Patrimonio Neto</p>
         <div className="flex items-baseline gap-3 flex-wrap">
           <AnimatedNumber
-            value={formatMoney(netWorth)}
-            className="text-3xl md:text-4xl font-display font-semibold"
+            value={netWorth}
+            format={formatMoney}
+            className="text-3xl md:text-4xl font-display font-semibold tabular-display"
           />
           <span
             className={`inline-flex items-center gap-1 text-sm font-medium px-2 py-0.5 rounded-full ${

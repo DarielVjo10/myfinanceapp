@@ -29,6 +29,17 @@ export async function createRecurringTemplate(userId, { categoryId, accountId, a
   return data
 }
 
+export async function updateRecurringTemplate(templateId, patch) {
+  const { data, error } = await supabase
+    .from('recurring_expense_templates')
+    .update(patch)
+    .eq('id', templateId)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function deactivateRecurringTemplate(templateId) {
   const { error } = await supabase
     .from('recurring_expense_templates')

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 import { usePeriod } from '../contexts/PeriodContext'
 import { totalIncomeForPeriod } from '../services/incomes'
@@ -141,7 +142,9 @@ export default function Dashboard() {
     load()
   }
 
-  if (loading || !data) {
+  // solo la primera carga muestra el skeleton — cambiar de mes actualiza los
+  // datos en el sitio en vez de desmontar todo el panel (evita el "salto")
+  if (!data) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-40 w-full" />
@@ -166,7 +169,11 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      animate={{ opacity: loading ? 0.6 : 1 }}
+      transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+    >
       {pendingRecurring.length > 0 && (
         <div className="flex items-center justify-between gap-4 bg-info/10 border border-info/30 rounded-xl2 px-5 py-4">
           <div className="flex items-center gap-3">
@@ -295,6 +302,6 @@ export default function Dashboard() {
           </Button>
         </div>
       </Modal>
-    </div>
+    </motion.div>
   )
 }

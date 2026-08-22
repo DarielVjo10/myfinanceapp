@@ -1,4 +1,67 @@
 // ---------------------------------------------------------------------
+// Interés simple de un mes dado un balance y una tasa anual — se usa tanto
+// para tarjetas de crédito (interés que cobra si no se paga completo) como
+// para cuentas con interés (interés que la cuenta le paga al usuario).
+// ---------------------------------------------------------------------
+export function estimateMonthlyInterest(balance, annualInterestRate) {
+  return Number(balance) * (Number(annualInterestRate) / 100 / 12)
+}
+
+export function estimateMinimumPayment(balance, minimumPaymentPct) {
+  return Number(balance) * (Number(minimumPaymentPct) / 100)
+}
+
+// ---------------------------------------------------------------------
+// Proyección de metas: dado el ritmo actual de aportes, ¿cuándo se alcanza
+// el objetivo? Genérica a propósito — sirve para savings_goals hoy y para
+// cualquier otra meta con monto objetivo + aporte mensual (ej. inversiones,
+// si más adelante les agregas esos campos) sin duplicar el cálculo.
+// ---------------------------------------------------------------------
+function monthsBetween(from, to) {
+  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth())
+}
+
+function addMonths(date, n) {
+  const d = new Date(date)
+  d.setMonth(d.getMonth() + n)
+  return d
+}
+
+/**
+ * status: 'ahead' | 'on_time' | 'behind' | null (null si no hay target_date
+ * o no hay aporte mensual planificado con qué proyectar).
+ */
+export function projectGoalCompletion({ currentAmount, targetAmount, monthlyContribution, targetDate }) {
+  if (!targetAmount || targetAmount <= 0) return null
+
+  const remaining = targetAmount - currentAmount
+  if (remaining <= 0) {
+    return { monthsToComplete: 0, completionDate: new Date(), status: 'ahead', requiredMonthlyContribution: 0 }
+  }
+
+  if (!monthlyContribution || monthlyContribution <= 0) {
+    return { monthsToComplete: null, completionDate: null, status: targetDate ? 'behind' : null, requiredMonthlyContribution: null }
+  }
+
+  const monthsToComplete = Math.ceil(remaining / monthlyContribution)
+  const completionDate = addMonths(new Date(), monthsToComplete)
+
+  let status = null
+  let requiredMonthlyContribution = null
+  if (targetDate) {
+    const monthsUntilTarget = monthsBetween(new Date(), new Date(targetDate))
+    if (monthsToComplete <= monthsUntilTarget) {
+      status = monthsToComplete < monthsUntilTarget ? 'ahead' : 'on_time'
+    } else {
+      status = 'behind'
+      requiredMonthlyContribution = monthsUntilTarget > 0 ? remaining / monthsUntilTarget : remaining
+    }
+  }
+
+  return { monthsToComplete, completionDate, status, requiredMonthlyContribution }
+}
+
+// ---------------------------------------------------------------------
 // Interés compuesto
 // ---------------------------------------------------------------------
 // frequency: 'monthly' | 'quarterly' | 'annually' | 'daily'

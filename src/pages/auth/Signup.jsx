@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Sprout, CheckCircle2 } from 'lucide-react'
+import { Banknote, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { Field, Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
@@ -51,9 +51,9 @@ export default function Signup() {
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-2 justify-center mb-8">
           <div className="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center">
-            <Sprout size={20} className="text-emerald-950" />
+            <Banknote size={20} className="text-emerald-950" />
           </div>
-          <span className="font-display font-semibold text-xl text-ink">Brote</span>
+          <span className="font-display font-semibold text-xl text-ink">MyBudget</span>
         </div>
 
         <div className="bg-surface border border-border rounded-xl2 shadow-soft p-6">

@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, TrendingDown, PiggyBank, History, Settings } from 'lucide-react'
+import { LayoutDashboard, TrendingDown, PiggyBank, History, Settings, Repeat } from 'lucide-react'
 
 const links = [
   { to: '/', label: 'Panel', icon: LayoutDashboard, end: true },
   { to: '/expenses', label: 'Gastos', icon: TrendingDown },
+  { to: '/recurring', label: 'Recurrentes', icon: Repeat },
   { to: '/savings', label: 'Ahorros', icon: PiggyBank },
   { to: '/history', label: 'Historial', icon: History },
   { to: '/settings', label: 'Ajustes', icon: Settings },

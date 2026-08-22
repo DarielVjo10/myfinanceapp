@@ -19,7 +19,7 @@ export function Modal({ open, onClose, title, children }) {
             initial={{ opacity: 0, scale: 0.96, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 10 }}
-            transition={{ duration: 0.15 }}
+            transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
             className="relative bg-surface border border-border rounded-xl2 shadow-soft w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-4">

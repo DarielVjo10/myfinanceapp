@@ -1,6 +1,6 @@
-# Finanzas Personales — Fintech App
+# MyBudget
 
-React + Vite + Tailwind + Framer Motion + Recharts + Supabase.
+Control de finanzas personales. React + Vite + Tailwind + Framer Motion + Recharts + Supabase.
 
 ## 1. Instalar dependencias
 
@@ -32,7 +32,7 @@ Abre http://localhost:5173
 
 ## 5. Deploy a GitHub Pages
 
-1. Edita `vite.config.js` y cambia `base: '/finance-app/'` por el nombre real de tu repositorio.
+1. Edita `vite.config.js` y confirma que `base` coincide con el nombre real de tu repositorio de GitHub.
 2. En GitHub: Settings → Pages → Source → "GitHub Actions".
 3. En GitHub: Settings → Secrets and variables → Actions, agrega:
    - `VITE_SUPABASE_URL`
@@ -54,8 +54,7 @@ src/
 
 ## Notas de alcance
 
-- CSV/PDF export no está incluido en esta primera entrega — es un buen
-  siguiente paso (recharts + jsPDF, o exportar CSV con Papaparse).
+- Exportar historial completo (CSV) y reporte anual (PDF) están en Ajustes.
 - El login con Google ya está wireado (`signInWithGoogle` en
   `AuthContext.jsx`); solo necesita que actives el provider en Supabase.
 - El "Clonar mes" copia presupuestos y distribución de cuentas; las

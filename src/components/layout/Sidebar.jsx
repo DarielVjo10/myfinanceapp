@@ -1,14 +1,16 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, TrendingUp, TrendingDown, PiggyBank,
-  Landmark, History, LineChart, Settings, Sprout,
+  Landmark, History, LineChart, Settings, Banknote, Coins, Repeat,
 } from 'lucide-react'
 
 const links = [
   { to: '/', label: 'Panel', icon: LayoutDashboard, end: true },
   { to: '/income', label: 'Ingresos', icon: TrendingUp },
   { to: '/expenses', label: 'Gastos', icon: TrendingDown },
+  { to: '/recurring', label: 'Recurrentes', icon: Repeat },
   { to: '/savings', label: 'Ahorros', icon: PiggyBank },
+  { to: '/investments', label: 'Inversiones', icon: Coins },
   { to: '/accounts', label: 'Cuentas', icon: Landmark },
   { to: '/history', label: 'Historial', icon: History },
   { to: '/analytics', label: 'Analítica', icon: LineChart },
@@ -20,9 +22,9 @@ export function Sidebar() {
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-border bg-surface h-screen sticky top-0 px-3 py-5">
       <div className="flex items-center gap-2 px-3 mb-8">
         <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-          <Sprout size={18} className="text-emerald-950" />
+          <Banknote size={18} className="text-emerald-950" />
         </div>
-        <span className="font-display font-semibold text-ink">Brote</span>
+        <span className="font-display font-semibold text-ink">MyBudget</span>
       </div>
 
       <nav className="flex-1 space-y-1">
