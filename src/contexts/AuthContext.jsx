@@ -20,17 +20,24 @@ export function AuthProvider({ children }) {
     return () => listener.subscription.unsubscribe()
   }, [])
 
+  const redirectBase = `${window.location.origin}${import.meta.env.BASE_URL}`
+
   const signInWithPassword = (email, password) =>
     supabase.auth.signInWithPassword({ email, password })
 
+  // sin emailRedirectTo explícito, Supabase usa la "Site URL" del
+  // Dashboard como destino del link de confirmación — si esa Site URL
+  // no coincide exactamente con /myfinanceapp/ (GitHub Pages sirve la
+  // app en un subpath, no en la raíz del dominio), el link cae en 404.
+  // Mismo patrón que signInWithGoogle/resetPassword: se construye el
+  // destino en el cliente para que siempre apunte a donde el usuario
+  // realmente está usando la app (prod o localhost).
   const signUp = (email, password, fullName) =>
     supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      options: { data: { full_name: fullName }, emailRedirectTo: redirectBase },
     })
-
-  const redirectBase = `${window.location.origin}${import.meta.env.BASE_URL}`
 
   const signInWithGoogle = () =>
     supabase.auth.signInWithOAuth({
